@@ -11,3 +11,6 @@ tqdm
 huggingface_hub
 accelerate
 streamlit
+langchain
+langchain-community
+langchain-core
