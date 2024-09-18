@@ -1,0 +1,13 @@
+torch
+transformers
+datasets
+numpy
+pandas
+seaborn
+matplotlib
+nltk
+wget
+tqdm
+huggingface_hub
+accelerate
+streamlit
