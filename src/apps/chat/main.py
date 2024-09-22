@@ -8,6 +8,7 @@ from tqdm import trange
 
 from src.apps.streamlit_utils import SessionKey
 from huggingface_hub import login
+import os
 
 MODELS = {
     'Meta-Llama-3-8B': 'meta-llama/Meta-Llama-3-8B',
@@ -55,6 +56,7 @@ class SessionKeys:
     run_evaluation = SessionKey.with_default('run_evaluation', False)
     selected_template_name = SessionKey.with_default('selected_template_name', list(TEMPLATES.keys())[0])
     initial_dialogue = SessionKey.with_default('initial_dialogue', INITIAL_DIALOGUE)
+    hf_token = SessionKey.with_default('hf_token', os.getenv('HF_TOKEN'))
 
 
 # Caching the model loading
@@ -64,7 +66,7 @@ def load_model(model_name):
         st.error(f"Model {model_name} is not supported.")
         st.stop()
     model_id = MODELS[model_name]
-    login(token='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')
+    login(token=SessionKeys.hf_token.get())
 
     # Load tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -116,7 +118,7 @@ def generate_llm_response():
     )
     # Generate response
     response = llm_pipeline(get_full_prompt())
-    # Extract the assistant's reply
+    # Extract the assistant's reptoly
     assistant_reply = response.strip().split(ASSISTANT_TOKEN)[-1].strip()
     return assistant_reply
 
@@ -157,6 +159,10 @@ def render_llm_pipeline_hyperparameters():
         options=list(MODELS.keys()),
         key=SessionKeys.selected_model.key
     )
+    st.text_input(
+        'Hugging Face Token',
+        key=SessionKeys.hf_token.key
+    )
     st.slider(
         'Temperature', min_value=0.0, max_value=1.0, value=0.1,
         step=0.01, key=SessionKeys.temperature.key
@@ -181,8 +187,6 @@ def render_llm_pipeline_hyperparameters():
 
     generator = pipeline("text-generation")
     print(generator)
-
-
 
 
 def clear_chat_history():
