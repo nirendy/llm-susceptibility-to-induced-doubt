@@ -15,6 +15,12 @@ class SessionKey(Generic[TSessionKey]):
     def __init__(self, key):
         self.key = key
 
+    @staticmethod
+    def with_default(key, default_value: TSessionKey) -> "SessionKey[TSessionKey]":
+        session_key = SessionKey(key)
+        session_key.init(default_value)
+        return session_key
+
     def exists(self) -> bool:
         return self.key in st.session_state
 
