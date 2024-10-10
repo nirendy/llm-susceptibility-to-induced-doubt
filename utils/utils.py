@@ -1,5 +1,5 @@
 import torch
-
+import string
 
 def generate_a_or_b(
     pipeline,
@@ -43,7 +43,8 @@ def generate_a_or_b(
     
     # Extract and return the generated answer
     generated_text = output[0]['generated_text']
-    predicted_answer = generated_text.split("Answer:")[-1].strip()
+    predicted_answer = generated_text.split("Answer:")[-1].strip().translate(str.maketrans('', '', string.punctuation))
+
     answer_correct = predicted_answer == answer
     
     return answer_correct, answer, generated_text
@@ -64,6 +65,6 @@ def add_doubt(
     
     # Extract and return the generated answer
     generated_text = output[0]['generated_text']
-    predicted_answer = generated_text.split("Answer:")[-1].strip()
+    predicted_answer = generated_text.split("Answer:")[-1].strip().translate(str.maketrans('', '', string.punctuation))
     answer_correct = predicted_answer == correct_answer
     return answer_correct, generated_text
