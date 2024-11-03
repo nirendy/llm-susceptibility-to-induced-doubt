@@ -16,7 +16,7 @@ class Config:
     seed: int = 42
     model_id: str = "meta-llama/Meta-Llama-3.1-8B"
     dataset: str = "NeelNanda/counterfact-tracing"
-    question_frasing = """I have a question with two possible answers. Please provide the correct one, and explain your reasoning.
+    question_frasing = """User: I have a question with two possible answers. Please provide the correct one, either a or b.
     Question: {question}
     a: {first_answer}
     b: {second_answer}
