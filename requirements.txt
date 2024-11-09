@@ -14,3 +14,4 @@ streamlit
 langchain
 langchain-community
 langchain-core
+pyrallis
