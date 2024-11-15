@@ -1,3 +1,5 @@
+import gc
+
 import pandas as pd
 import streamlit as st
 from langchain_huggingface import HuggingFacePipeline
@@ -11,6 +13,7 @@ from huggingface_hub import login
 import os
 
 MODELS = {
+    'no_model': 'no_model',
     'Meta-Llama-3-8B': 'meta-llama/Meta-Llama-3-8B',
     'Llama2-7B': "meta-llama/Llama-2-7b-hf",
     'Llama2-7B-chat': "meta-llama/Llama-2-7b-chat-hf",
@@ -56,12 +59,18 @@ class SessionKeys:
     run_evaluation = SessionKey.with_default('run_evaluation', False)
     selected_template_name = SessionKey.with_default('selected_template_name', list(TEMPLATES.keys())[0])
     initial_dialogue = SessionKey.with_default('initial_dialogue', INITIAL_DIALOGUE)
-    hf_token = SessionKey.with_default('hf_token', os.getenv('HF_TOKEN'))
+    hf_token = SessionKey.with_default('hf_token', os.getenv('HF_TOKEN', ''))
 
+
+def unload_model():
+    gc.collect()
+    torch.cuda.empty_cache()
 
 # Caching the model loading
-@st.cache_resource(max_entries=1)
+@st.cache_resource(max_entries=1, ttl=20)
 def load_model(model_name):
+    print(f'loading model {model_name}')
+    unload_model()
     if model_name not in MODELS:
         st.error(f"Model {model_name} is not supported.")
         st.stop()
@@ -163,6 +172,11 @@ def render_llm_pipeline_hyperparameters():
         'Hugging Face Token',
         key=SessionKeys.hf_token.key
     )
+
+    if st.button('Unload Model'):
+        load_model.clear()
+        unload_model()
+
     st.slider(
         'Temperature', min_value=0.0, max_value=1.0, value=0.1,
         step=0.01, key=SessionKeys.temperature.key
@@ -184,10 +198,6 @@ def render_llm_pipeline_hyperparameters():
         'Initial Dialogue',
         key=SessionKeys.initial_dialogue.key,
     )
-
-    generator = pipeline("text-generation")
-    print(generator)
-
 
 def clear_chat_history():
     # SessionKeys.messages.update([{"role": "assistant", "content": "How may I assist you today?"}])
@@ -223,6 +233,9 @@ def render_message_suggestions():
         on_change=lambda: SessionKeys.selected_template.update(TEMPLATES[SessionKeys.selected_template_name.get()]),
         key=SessionKeys.selected_template_name.key
     )
+
+    if not SessionKeys.selected_template.exists():
+        SessionKeys.selected_template.update(TEMPLATES[SessionKeys.selected_template_name.get()])
 
     st.text_area(
         'Template Content',
