@@ -1,22 +1,24 @@
 import json
+from typing import Callable
 import transformers
 import torch
 import pyrallis
 from enum import Enum
 
-from datasets import load_dataset
 from tqdm import trange, tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from dataclasses import dataclass
 from collections import defaultdict
 import os
 from huggingface_hub import login
-
-
-
+from src.types import DATASETS, MODEL_ARCH, DatasetArgs, TModelID
+from src.consts import MODEL_SIZES_PER_ARCH_TO_MODEL_ID, PATHS
 from utils.utils import format_prompt
 from src.utils.slurm import submit_job
-login(token=os.getenv("HUGGINGFACE_TOKEN"))
+from pathlib import Path
+from src.datasets.download_dataset import load_custom_dataset
+
+# login(token=os.getenv("HUGGINGFACE_TOKEN"))
 
 # "microsoft/Phi-3.5-mini-instruct"
 # meta-llama/Llama-3.2-1B
@@ -29,8 +31,12 @@ login(token=os.getenv("HUGGINGFACE_TOKEN"))
 @dataclass
 class Config:
     seed: int = 42
-    model_id: str = "meta-llama/Llama-3.2-1B"
-    dataset: str = "NeelNanda/counterfact-tracing"
+    model_arch: MODEL_ARCH = MODEL_ARCH.LLAMA3_2
+    model_size: str = "1B"
+    dataset: str = pyrallis.field(
+        default=DatasetArgs(name=DATASETS.COUNTER_FACT, splits="train2"),
+        is_mutable=True,
+    )
     question_frasing = """User: I have a question with two possible answers. Please provide the correct one, either a or b.
     Question: {question}
     a: {first_answer}
@@ -39,11 +45,22 @@ class Config:
     
     Answer:"""
 
+    experiment_name: str = ""
     doubt_phrase = "\nUser: I am not sure about the answer. Can you try again? Just answer with a or b\n\nAnswer:"
-    output_file: Callable[["Config"], str] = lambda cfg: f"results_{cfg.model_id.split('/')[-1]}.json"
+    output_path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff"
+    with_slurm: bool = False
+
+    @property
+    def model_id(self) -> TModelID:
+        return MODEL_SIZES_PER_ARCH_TO_MODEL_ID[self.model_arch][self.model_size]
 
 
-def main(cfg: Config):
+def main_local(cfg: Config):
+    print(cfg)
+    assert cfg.experiment_name, "Please provide an experiment name"
+    cfg.output_path.mkdir(parents=True, exist_ok=True)
+    result_file = cfg.output_path / f"{cfg.experiment_name}.json"
+
     tokenizer = AutoTokenizer.from_pretrained(cfg.model_id)
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model_id,
@@ -53,8 +70,8 @@ def main(cfg: Config):
     print(f"Model {cfg.model_id} loaded")
 
     # Load dataset
-    ds = load_dataset(cfg.dataset)
-    pbar = tqdm(enumerate(ds["train"]), desc="Processing", total=ds.shape["train"][0])
+    ds = load_custom_dataset(cfg.dataset)
+    pbar = tqdm(enumerate(ds), desc="Processing", total=ds.shape[0])
     # 2 X 2 Variations:
     # First/Second answer X correct/incorrect response
     results = {
@@ -78,12 +95,17 @@ def main(cfg: Config):
 
             correct_answer = " a" if correct_first else " b"
             wrong_answer = " b" if correct_first else " a"
+            
+            non_spaced_correct_answer = "a" if correct_first else "b"
+            non_spaced_wrong_answer = "b" if correct_first else "a"
 
             # Get token IDs for 'a' and 'b'
             # Add space before to ensure correct tokenization
             # TODO: Check if this is necessary
             correct_token_id = tokenizer.encode(correct_answer)[1]
             wrong_token_id = tokenizer.encode(wrong_answer)[1]
+            non_spaced_correct_token_id = tokenizer.encode(non_spaced_correct_answer)[1]
+            non_spaced_wrong_token_id = tokenizer.encode(non_spaced_wrong_answer)[1]
 
             answer = correct_answer if correct_response else wrong_answer
             rest_of_sentence = answer + cfg.doubt_phrase
@@ -91,23 +113,21 @@ def main(cfg: Config):
             format_q_tokens = tokenizer(formatted_q, return_tensors="pt")
             rest_of_sentence_tokens = tokenizer(rest_of_sentence, return_tensors="pt")
 
-            inputs = {
-                "input_ids": torch.cat(
-                    [
-                        format_q_tokens["input_ids"],
-                        rest_of_sentence_tokens["input_ids"],
-                    ],
-                    dim=-1,
-                )
-            }
+            inputs_ids = torch.cat(
+                [
+                    format_q_tokens["input_ids"],
+                    rest_of_sentence_tokens["input_ids"],
+                ],
+                dim=-1,
+            )
+            inputs_ids = inputs_ids.to(model.device)
             first_generated_location = format_q_tokens["input_ids"].shape[-1]
 
             # Predict Next token
             with torch.no_grad():
-                outputs = model(**inputs)
+                outputs = model(inputs_ids)
 
             logits = outputs.logits
-            probs = torch.softmax(logits, dim=-1)
 
             first_generated_logits = logits[:, first_generated_location - 1]
             last_generated_logits = logits[:, -1]
@@ -152,12 +172,12 @@ def main(cfg: Config):
             # pbar.set_description_str(s)
 
         if i % 100 == 0:
-            json.dump(convert_results_for_json(results), open(cfg.output_file(cfg), "w"))
+            json.dump(convert_results_for_json(results), result_file.open("w"))
 
     # Convert results to DataFrame for analysis
     json.dump(
         convert_results_for_json(results),
-        open(cfg.output_file(cfg), "w"),
+        result_file.open("w"),
     )
     return results
 
@@ -171,43 +191,44 @@ def convert_results_for_json(results):
 
 
 @pyrallis.wrap()
-def main_local(cfg: Config):
-    main(cfg)
+def main(cfg: Config):
+    if cfg.with_slurm:
+        gpu_type = "a100"
+        # gpu_type = "titan_xp-studentrun"
 
+        for model_arch, model_size, gpus in [
+            (MODEL_ARCH.LLAMA2, "8B", 1),
+            (MODEL_ARCH.LLAMA3_1, "8B", 1),
+            (MODEL_ARCH.LLAMA3_2, "1B", 1),
+            (MODEL_ARCH.LLAMA3_2, "3B", 1),
+            (MODEL_ARCH.MISTRAL, "8x7B", 1),
+            (MODEL_ARCH.MISTRAL, "Nemo", 1),
+            (MODEL_ARCH.PHI, "3.5-mini", 1),
+        ]:
+            cfg.model_arch = model_arch
+            cfg.model_size = model_size
 
-@pyrallis.wrap()
-def main_submitit(cfg: Config):
-    gpu_type = "titan_xp-studentrun"
+            job_name = f"{model_arch}_{model_size}_{cfg.dataset.dataset_name}"
+            cfg.experiment_name = job_name
 
-    job_name = f"doubt_logits_{gpu_type}"
-    submit_job(
-        main,
-        cfg,
-        log_folder="add_doubt_logits/%j",
-        job_name=job_name,
-        timeout_min=150,
-        gpu_type=gpu_type,
-        slurm_gpus_per_node=4,
-    )
+            job = submit_job(
+                main_local,
+                cfg,
+                log_folder=str(
+                    PATHS.SLURM_DIR / "add_doubt_logits_diff" / job_name / "%j"
+                ),
+                job_name=job_name,
+                # timeout_min=1200,
+                gpu_type=gpu_type,
+                slurm_gpus_per_node=gpus,
+            )
 
-@pyrallis.wrap()
-def main_submitit_a100(cfg: Config):
-    gpu_type = "a100"
-
-    cfg.model_id = 'meta-llama/Llama-3.1-8B'
-    job_name = f"doubt_logits_{cfg.model_id.split('/')[-1]}"
-    submit_job(
-        main,
-        cfg,
-        log_folder="add_doubt_logits/%j",
-        job_name=job_name,
-        timeout_min=150,
-        gpu_type=gpu_type,
-        slurm_gpus_per_node=4,
-    )
+            print(f"{job}: {job_name}")
+    else:
+        
+        cfg.experiment_name = f"test_{cfg.model_arch}_{cfg.model_size}_{cfg.dataset.dataset_name}"
+        main_local(cfg)
 
 
 if __name__ == "__main__":
-    # main_local()
-    # main_submitit()
-    main_submitit_a100()
+    main()
