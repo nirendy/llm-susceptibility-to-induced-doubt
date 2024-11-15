@@ -23,10 +23,13 @@ def submit_job(
         'l40s': {'partition': 'killable', 'account': 'gpu-research'},
         'a100': {'partition': 'gpu-a100-killable', 'account': 'gpu-research'},
         'h100': {'partition': 'gpu-h100-killable', 'account': 'gpu-research'},
-        'titan_xp-studentrun': {'partition': 'studentrun', 'account': 'gpu-students', 'nodelist': 's-005',},
-        'titan_xp-studentbatch': {'partition': 'studentbatch', 'account': 'gpu-students', 'nodelist': 's-005',},
-        'titan_xp-studentkillable': {'partition': 'studentkillable', 'account': 'gpu-students', 'nodelist': 's-005',}
+        'titan_xp-studentrun': {'partition': 'studentrun', 'account': 'gpu-students', 'nodelist': 's-003, s-004, s-005',},
+        'titan_xp-studentbatch': {'partition': 'studentbatch', 'account': 'gpu-students', 'nodelist': 's-003, s-004, s-005',},
+        'titan_xp-studentkillable': {'partition': 'studentkillable', 'account': 'gpu-students', 'nodelist': 's-003, s-004, s-005',}
     }
+    
+    if gpu_type == 'titan_xp-studentrun':
+        timeout_min = 150
 
     # Determine the appropriate partition and account based on `gpu_type`
     partition_account = partition_account_map[gpu_type]
