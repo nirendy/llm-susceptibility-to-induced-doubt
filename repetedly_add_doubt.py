@@ -109,17 +109,18 @@ def main(cfg: Config):
     logger.info("loading dataset")
     ds = load_dataset(cfg.dataset)
 
-    pbar = tqdm(
-        np.random.randint(low=0, high=len(ds), size=(cfg.num_iterations, cfg.num_repetitions)), 
-        desc="Processing", 
-        total=len(ds),
-    )
+    # pbar = tqdm(
+    #     np.random.randint(low=0, high=len(ds), size=(cfg.num_iterations, cfg.num_repetitions)), 
+    #     desc="Processing", 
+    #     total=len(ds),
+    # )
+    indeces = np.random.randint(low=0, high=len(ds['train']), size=(cfg.num_iterations, cfg.num_repetitions))
     confusion_matrices = defaultdict(lambda: defaultdict(int))
     # correct_answers = np.zeros(cfg.num_repetitions)
     # after_doubt_correct_answers = np.zeros(cfg.num_repetitions)
     
     logger.info("starting iterations")
-    for i, repetition_indices in enumerate(pbar):
+    for i, repetition_indices in enumerate(indeces):
         torch.cuda.empty_cache()
         generated_text = ""
         feedback = ""
