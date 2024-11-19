@@ -96,16 +96,12 @@ def main_local(cfg: Config):
             correct_answer = " a" if correct_first else " b"
             wrong_answer = " b" if correct_first else " a"
             
-            non_spaced_correct_answer = "a" if correct_first else "b"
-            non_spaced_wrong_answer = "b" if correct_first else "a"
 
             # Get token IDs for 'a' and 'b'
             # Add space before to ensure correct tokenization
             # TODO: Check if this is necessary
             correct_token_id = tokenizer.encode(correct_answer)[1]
             wrong_token_id = tokenizer.encode(wrong_answer)[1]
-            non_spaced_correct_token_id = tokenizer.encode(non_spaced_correct_answer)[1]
-            non_spaced_wrong_token_id = tokenizer.encode(non_spaced_wrong_answer)[1]
 
             answer = correct_answer if correct_response else wrong_answer
             rest_of_sentence = answer + cfg.doubt_phrase
