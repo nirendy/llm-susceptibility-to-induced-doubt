@@ -1,4 +1,3 @@
-from heapq import merge
 import pandas as pd
 from pathlib import Path
 import json
@@ -13,6 +12,36 @@ import seaborn as sns
 from src.types import DATASETS, DatasetArgs
 from src.datasets.download_dataset import load_custom_dataset
 from functools import lru_cache
+
+
+# columns
+class C:
+    # original columns
+    # from anlysis
+    INDEX = "index"
+    MODEL = "model"
+    CORRECT_FIRST = "correct_first"
+    CORRECT_RESPONSE = "correct_response"
+    FIRST_DIFF = "first_diff"
+    LAST_DIFF = "last_diff"
+    FIRST_TOP_5_TOKENS = "first_top_5_tokens"
+    FIRST_TOP_5_PROBS = "first_top_5_probs"
+    FIRST_CORRECT_PROB = "first_correct_prob"
+    FIRST_WRONG_PROB = "first_wrong_prob"
+    LAST_TOP_5_TOKENS = "last_top_5_tokens"
+    LAST_TOP_5_PROBS = "last_top_5_probs"
+    LAST_CORRECT_PROB = "last_correct_prob"
+    LAST_WRONG_PROB = "last_wrong_prob"
+    # From dataset
+    QUESTION = "question"
+    FIRST_ANSWER = "first_answer"
+    SECOND_ANSWER = "second_answer"
+
+    # added columns
+    WAS_CORRECT = "was_correct"
+    GROUP_SIZE = "group_size"
+    TEST = "test"
+    CHANGE_CATEGORY = "change_category"
 
 
 def load_experiment_results(
@@ -45,10 +74,10 @@ def convert_results_to_dataframe(results: Dict[str, Any]) -> pd.DataFrame:
 
             for idx, entry in enumerate(entries):
                 row = {
-                    "index": idx,
-                    "model": model_name,
-                    "correct_first": correct_first,
-                    "correct_response": correct_response,
+                    C.INDEX: idx,
+                    C.MODEL: model_name,
+                    C.CORRECT_FIRST: correct_first,
+                    C.CORRECT_RESPONSE: correct_response,
                 }
                 for prefix in ["first", "last"]:
                     row[f"{prefix}_diff"] = entry[f"{prefix}_generated_stats"]["diff"]
@@ -78,10 +107,10 @@ def fix_mistral_data(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     def fix_record(row):
-        if row["model"] != "mistral_8x7B":
+        if row[C.MODEL] != "mistral_8x7B":
             return row
 
-        correct_first = row["correct_first"]
+        correct_first = row[C.CORRECT_FIRST]
         correct_answer = "a" if correct_first else "b"
         wrong_answer = "b" if correct_first else "a"
 
@@ -112,8 +141,8 @@ def fix_mistral_data(df: pd.DataFrame) -> pd.DataFrame:
 def calculate_average_differences(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate average differences per model and condition."""
     return (
-        df.groupby(["model", "correct_first", "correct_response"])[
-            ["first_diff", "last_diff"]
+        df.groupby([C.MODEL, C.CORRECT_FIRST, C.CORRECT_RESPONSE])[
+            [C.FIRST_DIFF, C.LAST_DIFF]
         ]
         .mean()
         .round(3)
@@ -124,23 +153,23 @@ def calculate_average_differences_with_correctness(df: pd.DataFrame) -> pd.DataF
     """Calculate average differences per model and condition, including correctness."""
 
     # Calculate correctness for each row in the original dataframe
-    df["was_correct"] = df["first_diff"] > 0
+    df[C.WAS_CORRECT] = df[C.FIRST_DIFF] > 0
 
     # Calculate group sizes
-    size_per_model = df.groupby("model").size()
+    size_per_model = df.groupby(C.MODEL).size()
     group_sizes = (
-        (df.groupby(["model", "was_correct"]).size() / size_per_model) * 100
-    ).reset_index(name="group_size")
+        (df.groupby([C.MODEL, C.WAS_CORRECT]).size() / size_per_model) * 100
+    ).reset_index(name=C.GROUP_SIZE)
 
     df = pd.merge(
         df,
         group_sizes,
-        on=["model", "was_correct"],
+        on=[C.MODEL, C.WAS_CORRECT],
     )
 
     return (
-        df.groupby(["model", "correct_first", "correct_response", "was_correct"])
-        .agg({"first_diff": "mean", "last_diff": "mean", "group_size": "first"})
+        df.groupby([C.MODEL, C.CORRECT_FIRST, C.CORRECT_RESPONSE, C.WAS_CORRECT])
+        .agg({C.FIRST_DIFF: "mean", C.LAST_DIFF: "mean", C.GROUP_SIZE: "first"})
         .round(3)
     )
 
@@ -163,18 +192,18 @@ def prepare_plotting_data(avg_diffs: pd.DataFrame) -> pd.DataFrame:
 
     melted_avg_diffs = (
         avg_diffs_reset.melt(
-            id_vars=["model", "correct_first", "correct_response"],
-            value_vars=["first_diff", "last_diff"],
+            id_vars=[C.MODEL, C.CORRECT_FIRST, C.CORRECT_RESPONSE],
+            value_vars=[C.FIRST_DIFF, C.LAST_DIFF],
             var_name="diff_type",
             value_name="diff_value",
         )
         .loc[
-            lambda x: (x["diff_type"] == "last_diff") | (x["correct_response"] == True)
+            lambda x: (x["diff_type"] == C.LAST_DIFF) | (x[C.CORRECT_RESPONSE] == True)
         ]
         .assign(
             test=lambda x: x["diff_type"]
-            + x["correct_first"].astype(str)
-            + x["correct_response"].astype(str)
+            + x[C.CORRECT_FIRST].astype(str)
+            + x[C.CORRECT_RESPONSE].astype(str)
         )
         .replace({"test": get_test_mappings()})
         .assign(
@@ -184,7 +213,7 @@ def prepare_plotting_data(avg_diffs: pd.DataFrame) -> pd.DataFrame:
                 )
             }
         )
-        .sort_values(["model", "test"])
+        .sort_values([C.MODEL, C.TEST])
         .reset_index(drop=True)
     )
 
@@ -195,9 +224,9 @@ def plot_grouped_differences(df: pd.DataFrame):
     """Create a grouped bar plot of the differences."""
     return px.bar(
         df,
-        x="model",
+        x=C.MODEL,
         y="diff_value",
-        color="test",
+        color=C.TEST,
         barmode="group",
     )
 
@@ -217,29 +246,29 @@ def merge_with_dataset_questions(
             for correct_response in [True, False]:
                 expanded_rows.append(
                     {
-                        "index": row.name,
-                        "question": row["prompt"],
-                        "first_answer": (
+                        C.INDEX: row.name,
+                        C.QUESTION: row["prompt"],
+                        C.FIRST_ANSWER: (
                             row["target_true"] if correct_first else row["target_false"]
                         ),
-                        "second_answer": (
+                        C.SECOND_ANSWER: (
                             row["target_false"] if correct_first else row["target_true"]
                         ),
-                        "correct_first": correct_first,
-                        "correct_response": correct_response,
+                        C.CORRECT_FIRST: correct_first,
+                        C.CORRECT_RESPONSE: correct_response,
                     }
                 )
 
     ds_expanded_df = pd.DataFrame(expanded_rows)
     assert (
-        df.shape[0] == ds_expanded_df.shape[0] * df["model"].nunique()
+        df.shape[0] == ds_expanded_df.shape[0] * df[C.MODEL].nunique()
     ), "Mismatch in number of rows"
 
     # Merge the logits data with the dataset
     df_with_qa = pd.merge(
         df,
         ds_expanded_df,
-        on=["index", "correct_first", "correct_response"],
+        on=[C.INDEX, C.CORRECT_FIRST, C.CORRECT_RESPONSE],
         # how='left'
     )
 
@@ -263,18 +292,18 @@ def plot_scatter_with_questions(df_with_qa: pd.DataFrame):
     """Create an interactive scatter plot with question details on hover."""
     fig = px.scatter(
         df_with_qa,
-        x="first_diff",
-        y="last_diff",
-        color="model",
-        hover_data=["question", "first_answer", "second_answer", "index"],
+        x=C.FIRST_DIFF,
+        y=C.LAST_DIFF,
+        color=C.MODEL,
+        hover_data=[C.QUESTION, C.FIRST_ANSWER, C.SECOND_ANSWER, C.INDEX],
         title="First vs Last Logit Differences with Question Details",
-        facet_row="correct_first",
-        facet_col="correct_response",
+        facet_row=C.CORRECT_FIRST,
+        facet_col=C.CORRECT_RESPONSE,
         labels={
-            "first_diff": "",
-            "last_diff": "",
-            "index": "Question Index",
-            "question": "Question",
+            C.FIRST_DIFF: "",
+            C.LAST_DIFF: "",
+            C.INDEX: "Question Index",
+            C.QUESTION: "Question",
         },
         opacity=0.01,
     )
@@ -300,16 +329,16 @@ def plot_confidence_changes(df_with_qa: pd.DataFrame):
     """Plot how confidence changes before and after doubt by condition."""
     fig = px.box(
         df_with_qa,
-        x="model",
-        y=["first_diff", "last_diff"],
-        facet_row="correct_first",
-        facet_col="correct_response",
+        x=C.MODEL,
+        y=[C.FIRST_DIFF, C.LAST_DIFF],
+        facet_row=C.CORRECT_FIRST,
+        facet_col=C.CORRECT_RESPONSE,
         title="Confidence Changes by Condition",
         labels={
             "value": "Logit Difference",
             "variable": "Response Stage",
         },
-        hover_data=["index", "question", "first_answer", "second_answer"],
+        hover_data=[C.INDEX, C.QUESTION, C.FIRST_ANSWER, C.SECOND_ANSWER],
     )
 
     # Update the opacity of outliers
@@ -325,18 +354,18 @@ def plot_confidence_changes(df_with_qa: pd.DataFrame):
 
 def plot_question_specific_responses(df_with_qa: pd.DataFrame, question_index: int):
     """Create a detailed plot for a specific question."""
-    question_df = df_with_qa[df_with_qa["index"] == question_index]
+    question_df = df_with_qa[df_with_qa[C.INDEX] == question_index]
 
     fig = px.scatter(
         question_df,
-        x="first_diff",
-        y="last_diff",
-        color="model",
-        facet_row="correct_first",
-        facet_col="correct_response",
-        title=f'Question Analysis: {question_df.iloc[0]["question"][:100]}...',
-        labels={"first_diff": "", "last_diff": ""},
-        hover_data=["first_answer", "second_answer"],
+        x=C.FIRST_DIFF,
+        y=C.LAST_DIFF,
+        color=C.MODEL,
+        facet_row=C.CORRECT_FIRST,
+        facet_col=C.CORRECT_RESPONSE,
+        title=f'Question Analysis: {question_df.iloc[0][C.QUESTION][:100]}...',
+        labels={C.FIRST_DIFF: "", C.LAST_DIFF: ""},
+        hover_data=[C.FIRST_ANSWER, C.SECOND_ANSWER],
     )
 
     # Update layout to show labels only once
@@ -355,23 +384,23 @@ def prepare_plotting_data_with_correctness(avg_diffs: pd.DataFrame) -> pd.DataFr
     melted_avg_diffs = (
         avg_diffs_reset.melt(
             id_vars=[
-                "model",
-                "correct_first",
-                "correct_response",
-                "was_correct",
-                "group_size",
+                C.MODEL,
+                C.CORRECT_FIRST,
+                C.CORRECT_RESPONSE,
+                C.WAS_CORRECT,
+                C.GROUP_SIZE,
             ],
-            value_vars=["first_diff", "last_diff"],
+            value_vars=[C.FIRST_DIFF, C.LAST_DIFF],
             var_name="diff_type",
             value_name="diff_value",
         )
         .loc[
-            lambda x: (x["diff_type"] == "last_diff") | (x["correct_response"] == True)
+            lambda x: (x["diff_type"] == C.LAST_DIFF) | (x[C.CORRECT_RESPONSE] == True)
         ]
         .assign(
             test=lambda x: x["diff_type"]
-            + x["correct_first"].astype(str)
-            + x["correct_response"].astype(str)
+            + x[C.CORRECT_FIRST].astype(str)
+            + x[C.CORRECT_RESPONSE].astype(str)
         )
         .replace({"test": get_test_mappings()})
         .assign(
@@ -381,8 +410,8 @@ def prepare_plotting_data_with_correctness(avg_diffs: pd.DataFrame) -> pd.DataFr
                 )
             }
         )
-        .sort_values(["was_correct"], ascending=False)
-        .sort_values(["model", "test"])
+        .sort_values([C.WAS_CORRECT], ascending=False)
+        .sort_values([C.MODEL, C.TEST])
     )
 
     return melted_avg_diffs
@@ -392,17 +421,17 @@ def plot_grouped_differences_with_correctness(df: pd.DataFrame):
     """Create a grouped bar plot of the differences split by initial response correctness."""
     fig = px.bar(
         df,
-        x="model",
+        x=C.MODEL,
         y="diff_value",
-        color="test",
+        color=C.TEST,
         barmode="group",
-        facet_row="was_correct",
+        facet_row=C.WAS_CORRECT,
         title="Model Performance by Initial Correctness",
         labels={
             "diff_value": "Logit Difference",
-            "was_correct": "Initially Correct",
+            C.WAS_CORRECT: "Initially Correct",
         },
-        hover_data=["group_size"],
+        hover_data=[C.GROUP_SIZE],
     )
 
     # Update facet row labels
@@ -414,64 +443,70 @@ def plot_grouped_differences_with_correctness(df: pd.DataFrame):
 
     return fig
 
+
 def calculate_response_changes(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate the percentages of response changes for each model."""
-    
+
     # Calculate correctness for first and last responses
-    df['first_correct'] = df['first_diff'] > 0
-    df['last_correct'] = df['last_diff'] > 0
-       
+    df["first_correct"] = df[C.FIRST_DIFF] > 0
+    df["last_correct"] = df[C.LAST_DIFF] > 0
+
     # Create categories
     def get_change_category(row):
-        if row['first_correct'] and not row['last_correct']:
-            return 'V→X'
-        elif not row['first_correct'] and row['last_correct']:
-            return 'X→V'
-        elif row['first_correct'] and row['last_correct']:
-            return 'V→V'
+        if row["first_correct"] and not row["last_correct"]:
+            return "V→X"
+        elif not row["first_correct"] and row["last_correct"]:
+            return "X→V"
+        elif row["first_correct"] and row["last_correct"]:
+            return "V→V"
         else:
-            return 'X→X'
-    
-    df['change_category'] = df.apply(get_change_category, axis=1)
-    
+            return "X→X"
+
+    df[C.CHANGE_CATEGORY] = df.apply(get_change_category, axis=1)
+
     # Calculate percentages per model
-    result = (df.groupby(['model', 'change_category'])
-             .size()
-             .unstack()
-             .fillna(0))
-    
+    result = df.groupby([C.MODEL, C.CHANGE_CATEGORY]).size().unstack().fillna(0)
+
     # Convert to percentages
     total_per_model = result.sum(axis=1)
     result_percentages = (result.div(total_per_model, axis=0) * 100).round(2)
-    
-    result_percentages['Before Doubt'] = result_percentages['V→V'] + result_percentages['V→X']
-    result_percentages['After Doubt'] = result_percentages['V→V'] + result_percentages['X→V']
-    
+
+    result_percentages["Before Doubt"] = (
+        result_percentages["V→V"] + result_percentages["V→X"]
+    )
+    result_percentages["After Doubt"] = (
+        result_percentages["V→V"] + result_percentages["X→V"]
+    )
+
     # Add total counts as a separate column
-    result_percentages['Total Samples'] = total_per_model
-    
+    result_percentages["Total Samples"] = total_per_model
+
     print(result_percentages.to_markdown())
 
-def calculate_response_changes_natural(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+
+def calculate_response_changes_natural(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Calculate the percentages of response changes for each model, only for natural responses.
     i.e. where the correct response matches the first response.
     """
     # Filter for natural responses (where correct_response matches correct_first)
-    df = df[df['correct_response'] == (df['first_diff'] > 0)]
-    
+    df = df[df[C.CORRECT_RESPONSE] == (df[C.FIRST_DIFF] > 0)]
+
     # Split by correct_first and calculate separately
     print("\nResults when correct answer was presented first:")
     print("==============================================")
-    calculate_response_changes(df[df['correct_first']].copy())
-    
+    calculate_response_changes(df[df[C.CORRECT_FIRST]].copy())
+
     print("\nResults when correct answer was presented second:")
     print("==============================================")
-    calculate_response_changes(df[~df['correct_first']].copy())
-    
+    calculate_response_changes(df[~df[C.CORRECT_FIRST]].copy())
+
     print("\nCombined results:")
     print("==============================================")
     calculate_response_changes(df.copy())
+
 
 @lru_cache(maxsize=32)
 def load_and_process_results(
@@ -491,16 +526,12 @@ def load_and_process_results(
 
 
 def add_derived_columns(logit_diffs: pd.DataFrame) -> pd.DataFrame:
-    return (
-        logit_diffs
-        .pipe(lambda df : df[df['model'] != 'mistral_8x7B'])
-    )
-    
+    return logit_diffs.pipe(lambda df: df[df[C.MODEL] != "mistral_8x7B"])
+
 
 def main(prompt_title: str, dataset_args: DatasetArgs):
     df_fixed = load_and_process_results(prompt_title, dataset_args)
-    
-    
+
     calculate_response_changes_natural(df_fixed)
-    
+
     return df_fixed
