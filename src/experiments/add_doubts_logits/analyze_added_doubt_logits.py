@@ -7,11 +7,29 @@ import json
 from pathlib import Path
 import pandas as pd
 from src.consts import PATHS
-import matplotlib.pyplot as pltcha
-import seaborn as sns
 from src.types import DATASETS, DatasetArgs
 from src.datasets.download_dataset import load_custom_dataset
 from functools import lru_cache
+
+
+class JSON_C:
+    DIFF = "diff"
+    GENERATED_STATS = "_generated_stats"
+    TOP_5_TOKENS = "top_5_tokens"
+    TOP_5_PROBS = "top_5_probs"
+
+
+class PART_C:
+    FIRST = "first"
+    LAST = "last"
+    CORRECT = "correct"
+    WRONG = "wrong"
+    DIFF = "_diff"
+    TOP_5_TOKENS = "_top_5_tokens"
+    TOP_5_PROBS = "_top_5_probs"
+    PROB = "_prob"
+    PREFIXES = [FIRST, LAST]
+    CORRECTNESS = [CORRECT, WRONG]
 
 
 # columns
@@ -22,16 +40,13 @@ class C:
     MODEL = "model"
     CORRECT_FIRST = "correct_first"
     CORRECT_RESPONSE = "correct_response"
-    FIRST_DIFF = "first_diff"
-    LAST_DIFF = "last_diff"
-    FIRST_TOP_5_TOKENS = "first_top_5_tokens"
-    FIRST_TOP_5_PROBS = "first_top_5_probs"
-    FIRST_CORRECT_PROB = "first_correct_prob"
-    FIRST_WRONG_PROB = "first_wrong_prob"
-    LAST_TOP_5_TOKENS = "last_top_5_tokens"
-    LAST_TOP_5_PROBS = "last_top_5_probs"
-    LAST_CORRECT_PROB = "last_correct_prob"
-    LAST_WRONG_PROB = "last_wrong_prob"
+    FIRST_DIFF = PART_C.FIRST + PART_C.DIFF
+    LAST_DIFF = PART_C.LAST + PART_C.DIFF
+    FIRST_TOP_5_TOKENS = PART_C.FIRST + PART_C.TOP_5_TOKENS
+    FIRST_TOP_5_PROBS = PART_C.FIRST + PART_C.TOP_5_PROBS
+    FIRST_CORRECT_PROB = PART_C.FIRST + "_" + PART_C.CORRECT + PART_C.PROB
+    FIRST_WRONG_PROB = PART_C.FIRST + "_" + PART_C.WRONG + PART_C.PROB
+
     # From dataset
     QUESTION = "question"
     FIRST_ANSWER = "first_answer"
@@ -43,11 +58,24 @@ class C:
     TEST = "test"
     CHANGE_CATEGORY = "change_category"
 
+    # plotting and analysis columns
+    DIFF_TYPE = "diff_type"
+    DIFF_VALUE = "diff_value"
+    FIRST_CORRECT = "first_correct"
+    LAST_CORRECT = "last_correct"
+    TOTAL_SAMPLES = "Total Samples"
+    BEFORE_DOUBT = "Before Doubt"
+    AFTER_DOUBT = "After Doubt"
+    CHANGE_V_TO_X = "V→X"
+    CHANGE_X_TO_V = "X→V"
+    CHANGE_V_TO_V = "V→V"
+    CHANGE_X_TO_X = "X→X"
+
 
 def load_experiment_results(
-    prompt_title: str,
-    dataset_args: DatasetArgs,
-    output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
+        prompt_title: str,
+        dataset_args: DatasetArgs,
+        output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
 ) -> Dict[str, Any]:
     """Load experiment results from JSON files."""
     results = {}
@@ -79,17 +107,17 @@ def convert_results_to_dataframe(results: Dict[str, Any]) -> pd.DataFrame:
                     C.CORRECT_FIRST: correct_first,
                     C.CORRECT_RESPONSE: correct_response,
                 }
-                for prefix in ["first", "last"]:
-                    row[f"{prefix}_diff"] = entry[f"{prefix}_generated_stats"]["diff"]
-                    row[f"{prefix}_top_5_tokens"] = entry[f"{prefix}_generated_stats"][
-                        "top_5_tokens"
+                for prefix in PART_C.PREFIXES:
+                    row[f"{prefix}{PART_C.DIFF}"] = entry[f"{prefix}{JSON_C.GENERATED_STATS}"][JSON_C.DIFF]
+                    row[f"{prefix}{PART_C.TOP_5_TOKENS}"] = entry[f"{prefix}{JSON_C.GENERATED_STATS}"][
+                        JSON_C.TOP_5_TOKENS
                     ]
-                    row[f"{prefix}_top_5_probs"] = entry[f"{prefix}_generated_stats"][
-                        "top_5_probs"
+                    row[f"{prefix}{PART_C.TOP_5_PROBS}"] = entry[f"{prefix}{JSON_C.GENERATED_STATS}"][
+                        JSON_C.TOP_5_PROBS
                     ]
-                    for correctness in ["correct", "wrong"]:
-                        row[f"{prefix}_{correctness}_prob"] = entry[
-                            f"{prefix}_generated_stats"
+                    for correctness in PART_C.CORRECTNESS:
+                        row[f"{prefix}_{correctness}{PART_C.PROB}"] = entry[
+                            f"{prefix}{JSON_C.GENERATED_STATS}"
                         ][correctness]
 
                 rows.append(row)
@@ -114,7 +142,7 @@ def fix_mistral_data(df: pd.DataFrame) -> pd.DataFrame:
         correct_answer = "a" if correct_first else "b"
         wrong_answer = "b" if correct_first else "a"
 
-        for prefix in ["first", "last"]:
+        for prefix in PART_C.PREFIXES:
             try:
                 correct_prob = row[f"{prefix}_top_5_probs"][
                     row[f"{prefix}_top_5_tokens"].index(correct_answer)
@@ -158,7 +186,7 @@ def calculate_average_differences_with_correctness(df: pd.DataFrame) -> pd.DataF
     # Calculate group sizes
     size_per_model = df.groupby(C.MODEL).size()
     group_sizes = (
-        (df.groupby([C.MODEL, C.WAS_CORRECT]).size() / size_per_model) * 100
+            (df.groupby([C.MODEL, C.WAS_CORRECT]).size() / size_per_model) * 100
     ).reset_index(name=C.GROUP_SIZE)
 
     df = pd.merge(
@@ -177,12 +205,18 @@ def calculate_average_differences_with_correctness(df: pd.DataFrame) -> pd.DataF
 def get_test_mappings() -> Dict[str, str]:
     """Get mapping of test conditions to their descriptions."""
     return {
-        "first_diffTrueTrue": "(1st Diff, Correct 1st)",  # The difference in the 1st answer, where the correct answer is presented 1st
-        "first_diffFalseTrue": "(1st Diff, Correct 2nd)",  # The difference in the 1st answer, where the correct answer is presented 2nd
-        "last_diffTrueTrue": "(2nd Diff, Correct 1st, Correct 1st)",  # The difference in the 2nd answer, where the correct answer is presented 1st, and the first response was a correct
-        "last_diffTrueFalse": "(2nd Diff, Correct 1st, Mistake 1st)",  # The difference in the 2nd answer, where the correct answer is presented 1st, and the first response was a mistake
-        "last_diffFalseTrue": "(2nd Diff, Correct 2nd, Correct 1st)",  # The difference in the 2nd answer, where the correct answer is presented 2nd, and the first response was a correct
-        "last_diffFalseFalse": "(2nd Diff, Correct 2nd, Mistake 1st)",  # The difference in the 2nd answer, where the correct answer is presented 2nd, and the first response was a mistake
+        "first_diffTrueTrue": "(1st Diff, Correct 1st)",
+        # The difference in the 1st answer, where the correct answer is presented 1st
+        "first_diffFalseTrue": "(1st Diff, Correct 2nd)",
+        # The difference in the 1st answer, where the correct answer is presented 2nd
+        "last_diffTrueTrue": "(2nd Diff, Correct 1st, Correct 1st)",
+        # The difference in the 2nd answer, where the correct answer is presented 1st, and the first response was a correct
+        "last_diffTrueFalse": "(2nd Diff, Correct 1st, Mistake 1st)",
+        # The difference in the 2nd answer, where the correct answer is presented 1st, and the first response was a mistake
+        "last_diffFalseTrue": "(2nd Diff, Correct 2nd, Correct 1st)",
+        # The difference in the 2nd answer, where the correct answer is presented 2nd, and the first response was a correct
+        "last_diffFalseFalse": "(2nd Diff, Correct 2nd, Mistake 1st)",
+        # The difference in the 2nd answer, where the correct answer is presented 2nd, and the first response was a mistake
     }
 
 
@@ -194,22 +228,22 @@ def prepare_plotting_data(avg_diffs: pd.DataFrame) -> pd.DataFrame:
         avg_diffs_reset.melt(
             id_vars=[C.MODEL, C.CORRECT_FIRST, C.CORRECT_RESPONSE],
             value_vars=[C.FIRST_DIFF, C.LAST_DIFF],
-            var_name="diff_type",
-            value_name="diff_value",
+            var_name=C.DIFF_TYPE,
+            value_name=C.DIFF_VALUE,
         )
         .loc[
-            lambda x: (x["diff_type"] == C.LAST_DIFF) | (x[C.CORRECT_RESPONSE] == True)
+            lambda x: (x[C.DIFF_TYPE] == C.LAST_DIFF) | (x[C.CORRECT_RESPONSE] == True)
         ]
         .assign(
-            test=lambda x: x["diff_type"]
-            + x[C.CORRECT_FIRST].astype(str)
-            + x[C.CORRECT_RESPONSE].astype(str)
+            test=lambda x: x[C.DIFF_TYPE]
+                           + x[C.CORRECT_FIRST].astype(str)
+                           + x[C.CORRECT_RESPONSE].astype(str)
         )
         .replace({"test": get_test_mappings()})
         .assign(
             **{
-                "test": lambda df: pd.Categorical(
-                    df["test"], categories=get_test_mappings().values(), ordered=True
+                C.TEST: lambda df: pd.Categorical(
+                    df[C.TEST], categories=get_test_mappings().values(), ordered=True
                 )
             }
         )
@@ -225,17 +259,16 @@ def plot_grouped_differences(df: pd.DataFrame):
     return px.bar(
         df,
         x=C.MODEL,
-        y="diff_value",
+        y=C.DIFF_VALUE,
         color=C.TEST,
         barmode="group",
     )
 
 
 def merge_with_dataset_questions(
-    df: pd.DataFrame, dataset_args: DatasetArgs
+        df: pd.DataFrame, dataset_args: DatasetArgs
 ) -> pd.DataFrame:
     # Load the original dataset
-    dataset_args = DatasetArgs(name=DATASETS.COUNTER_FACT, splits="train1")
     ds = load_custom_dataset(dataset_args)
     ds_df = pd.DataFrame(ds)
 
@@ -261,7 +294,7 @@ def merge_with_dataset_questions(
 
     ds_expanded_df = pd.DataFrame(expanded_rows)
     assert (
-        df.shape[0] == ds_expanded_df.shape[0] * df[C.MODEL].nunique()
+            df.shape[0] == ds_expanded_df.shape[0] * df[C.MODEL].nunique()
     ), "Mismatch in number of rows"
 
     # Merge the logits data with the dataset
@@ -363,7 +396,7 @@ def plot_question_specific_responses(df_with_qa: pd.DataFrame, question_index: i
         color=C.MODEL,
         facet_row=C.CORRECT_FIRST,
         facet_col=C.CORRECT_RESPONSE,
-        title=f'Question Analysis: {question_df.iloc[0][C.QUESTION][:100]}...',
+        title=f"Question Analysis: {question_df.iloc[0][C.QUESTION][:100]}...",
         labels={C.FIRST_DIFF: "", C.LAST_DIFF: ""},
         hover_data=[C.FIRST_ANSWER, C.SECOND_ANSWER],
     )
@@ -391,22 +424,22 @@ def prepare_plotting_data_with_correctness(avg_diffs: pd.DataFrame) -> pd.DataFr
                 C.GROUP_SIZE,
             ],
             value_vars=[C.FIRST_DIFF, C.LAST_DIFF],
-            var_name="diff_type",
-            value_name="diff_value",
+            var_name=C.DIFF_TYPE,
+            value_name=C.DIFF_VALUE,
         )
         .loc[
-            lambda x: (x["diff_type"] == C.LAST_DIFF) | (x[C.CORRECT_RESPONSE] == True)
+            lambda x: (x[C.DIFF_TYPE] == C.LAST_DIFF) | (x[C.CORRECT_RESPONSE] == True)
         ]
         .assign(
-            test=lambda x: x["diff_type"]
-            + x[C.CORRECT_FIRST].astype(str)
-            + x[C.CORRECT_RESPONSE].astype(str)
+            test=lambda x: x[C.DIFF_TYPE]
+                           + x[C.CORRECT_FIRST].astype(str)
+                           + x[C.CORRECT_RESPONSE].astype(str)
         )
         .replace({"test": get_test_mappings()})
         .assign(
             **{
-                "test": lambda df: pd.Categorical(
-                    df["test"], categories=get_test_mappings().values(), ordered=True
+                C.TEST: lambda df: pd.Categorical(
+                    df[C.TEST], categories=get_test_mappings().values(), ordered=True
                 )
             }
         )
@@ -422,13 +455,13 @@ def plot_grouped_differences_with_correctness(df: pd.DataFrame):
     fig = px.bar(
         df,
         x=C.MODEL,
-        y="diff_value",
+        y=C.DIFF_VALUE,
         color=C.TEST,
         barmode="group",
         facet_row=C.WAS_CORRECT,
         title="Model Performance by Initial Correctness",
         labels={
-            "diff_value": "Logit Difference",
+            C.DIFF_VALUE: "Logit Difference",
             C.WAS_CORRECT: "Initially Correct",
         },
         hover_data=[C.GROUP_SIZE],
@@ -444,23 +477,23 @@ def plot_grouped_differences_with_correctness(df: pd.DataFrame):
     return fig
 
 
-def calculate_response_changes(df: pd.DataFrame) -> pd.DataFrame:
+def calculate_response_changes(df: pd.DataFrame):
     """Calculate the percentages of response changes for each model."""
 
     # Calculate correctness for first and last responses
-    df["first_correct"] = df[C.FIRST_DIFF] > 0
-    df["last_correct"] = df[C.LAST_DIFF] > 0
+    df[C.FIRST_CORRECT] = df[C.FIRST_DIFF] > 0
+    df[C.LAST_CORRECT] = df[C.LAST_DIFF] > 0
 
     # Create categories
     def get_change_category(row):
-        if row["first_correct"] and not row["last_correct"]:
-            return "V→X"
-        elif not row["first_correct"] and row["last_correct"]:
-            return "X→V"
-        elif row["first_correct"] and row["last_correct"]:
-            return "V→V"
+        if row[C.FIRST_CORRECT] and not row[C.LAST_CORRECT]:
+            return C.CHANGE_V_TO_X
+        elif not row[C.FIRST_CORRECT] and row[C.LAST_CORRECT]:
+            return C.CHANGE_X_TO_V
+        elif row[C.FIRST_CORRECT] and row[C.LAST_CORRECT]:
+            return C.CHANGE_V_TO_V
         else:
-            return "X→X"
+            return C.CHANGE_X_TO_X
 
     df[C.CHANGE_CATEGORY] = df.apply(get_change_category, axis=1)
 
@@ -471,22 +504,22 @@ def calculate_response_changes(df: pd.DataFrame) -> pd.DataFrame:
     total_per_model = result.sum(axis=1)
     result_percentages = (result.div(total_per_model, axis=0) * 100).round(2)
 
-    result_percentages["Before Doubt"] = (
-        result_percentages["V→V"] + result_percentages["V→X"]
+    result_percentages[C.BEFORE_DOUBT] = (
+            result_percentages[C.CHANGE_V_TO_V] + result_percentages[C.CHANGE_V_TO_X]
     )
-    result_percentages["After Doubt"] = (
-        result_percentages["V→V"] + result_percentages["X→V"]
+    result_percentages[C.AFTER_DOUBT] = (
+            result_percentages[C.CHANGE_V_TO_V] + result_percentages[C.CHANGE_X_TO_V]
     )
 
     # Add total counts as a separate column
-    result_percentages["Total Samples"] = total_per_model
+    result_percentages[C.TOTAL_SAMPLES] = total_per_model
 
     print(result_percentages.to_markdown())
 
 
 def calculate_response_changes_natural(
-    df: pd.DataFrame,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        df: pd.DataFrame,
+):
     """
     Calculate the percentages of response changes for each model, only for natural responses.
     i.e. where the correct response matches the first response.
@@ -510,9 +543,9 @@ def calculate_response_changes_natural(
 
 @lru_cache(maxsize=32)
 def load_and_process_results(
-    prompt_title: str,
-    dataset_args: DatasetArgs,
-    output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
+        prompt_title: str,
+        dataset_args: DatasetArgs,
+        output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
 ) -> pd.DataFrame:
     """
     Load and process experiment results, including fixing Mistral data.
