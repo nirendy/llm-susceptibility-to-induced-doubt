@@ -1,3 +1,4 @@
+from math import log
 import pandas as pd
 from pathlib import Path
 import json
@@ -6,10 +7,20 @@ import plotly.express as px
 import json
 from pathlib import Path
 import pandas as pd
+from regex import T
 from src.consts import PATHS
 from src.types import DATASETS, DatasetArgs
 from src.datasets.download_dataset import load_custom_dataset
 from functools import lru_cache
+
+MODELS_ORDER = [
+    "llama3_2_1B",
+    "llama3_2_3B",
+    "phi_3.5-mini",
+    "llama3_1_8B",
+    # "mistral_8x7B", # TODO: bring back
+    "mistral_Nemo",
+]
 
 
 class JSON_C:
@@ -54,6 +65,7 @@ class C:
 
     # added columns
     WAS_CORRECT = "was_correct"
+    NATURAL_RESPONSE = "natural_response"
     GROUP_SIZE = "group_size"
     TEST = "test"
     CHANGE_CATEGORY = "change_category"
@@ -61,7 +73,6 @@ class C:
     # plotting and analysis columns
     DIFF_TYPE = "diff_type"
     DIFF_VALUE = "diff_value"
-    FIRST_CORRECT = "first_correct"
     LAST_CORRECT = "last_correct"
     TOTAL_SAMPLES = "Total Samples"
     BEFORE_DOUBT = "Before Doubt"
@@ -73,9 +84,9 @@ class C:
 
 
 def load_experiment_results(
-        prompt_title: str,
-        dataset_args: DatasetArgs,
-        output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
+    prompt_title: str,
+    dataset_args: DatasetArgs,
+    output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
 ) -> Dict[str, Any]:
     """Load experiment results from JSON files."""
     results = {}
@@ -108,13 +119,15 @@ def convert_results_to_dataframe(results: Dict[str, Any]) -> pd.DataFrame:
                     C.CORRECT_RESPONSE: correct_response,
                 }
                 for prefix in PART_C.PREFIXES:
-                    row[f"{prefix}{PART_C.DIFF}"] = entry[f"{prefix}{JSON_C.GENERATED_STATS}"][JSON_C.DIFF]
-                    row[f"{prefix}{PART_C.TOP_5_TOKENS}"] = entry[f"{prefix}{JSON_C.GENERATED_STATS}"][
-                        JSON_C.TOP_5_TOKENS
-                    ]
-                    row[f"{prefix}{PART_C.TOP_5_PROBS}"] = entry[f"{prefix}{JSON_C.GENERATED_STATS}"][
-                        JSON_C.TOP_5_PROBS
-                    ]
+                    row[f"{prefix}{PART_C.DIFF}"] = entry[
+                        f"{prefix}{JSON_C.GENERATED_STATS}"
+                    ][JSON_C.DIFF]
+                    row[f"{prefix}{PART_C.TOP_5_TOKENS}"] = entry[
+                        f"{prefix}{JSON_C.GENERATED_STATS}"
+                    ][JSON_C.TOP_5_TOKENS]
+                    row[f"{prefix}{PART_C.TOP_5_PROBS}"] = entry[
+                        f"{prefix}{JSON_C.GENERATED_STATS}"
+                    ][JSON_C.TOP_5_PROBS]
                     for correctness in PART_C.CORRECTNESS:
                         row[f"{prefix}_{correctness}{PART_C.PROB}"] = entry[
                             f"{prefix}{JSON_C.GENERATED_STATS}"
@@ -180,13 +193,10 @@ def calculate_average_differences(df: pd.DataFrame) -> pd.DataFrame:
 def calculate_average_differences_with_correctness(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate average differences per model and condition, including correctness."""
 
-    # Calculate correctness for each row in the original dataframe
-    df[C.WAS_CORRECT] = df[C.FIRST_DIFF] > 0
-
     # Calculate group sizes
     size_per_model = df.groupby(C.MODEL).size()
     group_sizes = (
-            (df.groupby([C.MODEL, C.WAS_CORRECT]).size() / size_per_model) * 100
+        (df.groupby([C.MODEL, C.WAS_CORRECT]).size() / size_per_model) * 100
     ).reset_index(name=C.GROUP_SIZE)
 
     df = pd.merge(
@@ -236,8 +246,8 @@ def prepare_plotting_data(avg_diffs: pd.DataFrame) -> pd.DataFrame:
         ]
         .assign(
             test=lambda x: x[C.DIFF_TYPE]
-                           + x[C.CORRECT_FIRST].astype(str)
-                           + x[C.CORRECT_RESPONSE].astype(str)
+            + x[C.CORRECT_FIRST].astype(str)
+            + x[C.CORRECT_RESPONSE].astype(str)
         )
         .replace({"test": get_test_mappings()})
         .assign(
@@ -266,7 +276,7 @@ def plot_grouped_differences(df: pd.DataFrame):
 
 
 def merge_with_dataset_questions(
-        df: pd.DataFrame, dataset_args: DatasetArgs
+    df: pd.DataFrame, dataset_args: DatasetArgs
 ) -> pd.DataFrame:
     # Load the original dataset
     ds = load_custom_dataset(dataset_args)
@@ -294,7 +304,7 @@ def merge_with_dataset_questions(
 
     ds_expanded_df = pd.DataFrame(expanded_rows)
     assert (
-            df.shape[0] == ds_expanded_df.shape[0] * df[C.MODEL].nunique()
+        df.shape[0] == ds_expanded_df.shape[0] * df[C.MODEL].nunique()
     ), "Mismatch in number of rows"
 
     # Merge the logits data with the dataset
@@ -431,11 +441,13 @@ def prepare_plotting_data_with_correctness(avg_diffs: pd.DataFrame) -> pd.DataFr
             lambda x: (x[C.DIFF_TYPE] == C.LAST_DIFF) | (x[C.CORRECT_RESPONSE] == True)
         ]
         .assign(
-            test=lambda x: x[C.DIFF_TYPE]
-                           + x[C.CORRECT_FIRST].astype(str)
-                           + x[C.CORRECT_RESPONSE].astype(str)
+            **{
+                C.TEST: lambda x: x[C.DIFF_TYPE]
+                + x[C.CORRECT_FIRST].astype(str)
+                + x[C.CORRECT_RESPONSE].astype(str)
+            }
         )
-        .replace({"test": get_test_mappings()})
+        .replace({C.TEST: get_test_mappings()})
         .assign(
             **{
                 C.TEST: lambda df: pd.Categorical(
@@ -479,24 +491,6 @@ def plot_grouped_differences_with_correctness(df: pd.DataFrame):
 
 def calculate_response_changes(df: pd.DataFrame):
     """Calculate the percentages of response changes for each model."""
-
-    # Calculate correctness for first and last responses
-    df[C.FIRST_CORRECT] = df[C.FIRST_DIFF] > 0
-    df[C.LAST_CORRECT] = df[C.LAST_DIFF] > 0
-
-    # Create categories
-    def get_change_category(row):
-        if row[C.FIRST_CORRECT] and not row[C.LAST_CORRECT]:
-            return C.CHANGE_V_TO_X
-        elif not row[C.FIRST_CORRECT] and row[C.LAST_CORRECT]:
-            return C.CHANGE_X_TO_V
-        elif row[C.FIRST_CORRECT] and row[C.LAST_CORRECT]:
-            return C.CHANGE_V_TO_V
-        else:
-            return C.CHANGE_X_TO_X
-
-    df[C.CHANGE_CATEGORY] = df.apply(get_change_category, axis=1)
-
     # Calculate percentages per model
     result = df.groupby([C.MODEL, C.CHANGE_CATEGORY]).size().unstack().fillna(0)
 
@@ -505,10 +499,10 @@ def calculate_response_changes(df: pd.DataFrame):
     result_percentages = (result.div(total_per_model, axis=0) * 100).round(2)
 
     result_percentages[C.BEFORE_DOUBT] = (
-            result_percentages[C.CHANGE_V_TO_V] + result_percentages[C.CHANGE_V_TO_X]
+        result_percentages[C.CHANGE_V_TO_V] + result_percentages[C.CHANGE_V_TO_X]
     )
     result_percentages[C.AFTER_DOUBT] = (
-            result_percentages[C.CHANGE_V_TO_V] + result_percentages[C.CHANGE_X_TO_V]
+        result_percentages[C.CHANGE_V_TO_V] + result_percentages[C.CHANGE_X_TO_V]
     )
 
     # Add total counts as a separate column
@@ -518,34 +512,56 @@ def calculate_response_changes(df: pd.DataFrame):
 
 
 def calculate_response_changes_natural(
-        df: pd.DataFrame,
+    df: pd.DataFrame,
 ):
     """
     Calculate the percentages of response changes for each model, only for natural responses.
     i.e. where the correct response matches the first response.
     """
-    # Filter for natural responses (where correct_response matches correct_first)
-    df = df[df[C.CORRECT_RESPONSE] == (df[C.FIRST_DIFF] > 0)]
-
     # Split by correct_first and calculate separately
     print("\nResults when correct answer was presented first:")
     print("==============================================")
-    calculate_response_changes(df[df[C.CORRECT_FIRST]].copy())
+    calculate_response_changes(df[df[C.CORRECT_FIRST] & df[C.NATURAL_RESPONSE]])
 
     print("\nResults when correct answer was presented second:")
     print("==============================================")
-    calculate_response_changes(df[~df[C.CORRECT_FIRST]].copy())
+    calculate_response_changes(df[~df[C.CORRECT_FIRST] & df[C.NATURAL_RESPONSE]])
 
     print("\nCombined results:")
     print("==============================================")
-    calculate_response_changes(df.copy())
+    calculate_response_changes(df[df[C.NATURAL_RESPONSE]])
 
 
-@lru_cache(maxsize=32)
+def add_derived_columns(logit_diffs: pd.DataFrame) -> pd.DataFrame:
+    # Create categories
+    def get_change_category(row):
+        if row[C.WAS_CORRECT] and not row[C.LAST_CORRECT]:
+            return C.CHANGE_V_TO_X
+        elif not row[C.WAS_CORRECT] and row[C.LAST_CORRECT]:
+            return C.CHANGE_X_TO_V
+        elif row[C.WAS_CORRECT] and row[C.LAST_CORRECT]:
+            return C.CHANGE_V_TO_V
+        else:
+            return C.CHANGE_X_TO_X
+
+    return logit_diffs.assign(
+        **{
+            C.WAS_CORRECT: lambda df: df[C.FIRST_DIFF] > 0,
+            C.LAST_CORRECT: lambda df: df[C.LAST_DIFF] > 0,
+            C.CHANGE_CATEGORY: lambda df: df.apply(get_change_category, axis=1),
+            C.MODEL: lambda df: pd.Categorical(
+                df[C.MODEL], categories=MODELS_ORDER, ordered=True
+            ),
+            C.NATURAL_RESPONSE: lambda df: df[C.WAS_CORRECT] == df[C.CORRECT_RESPONSE],
+        }
+    )
+
+
+# @lru_cache(maxsize=32)
 def load_and_process_results(
-        prompt_title: str,
-        dataset_args: DatasetArgs,
-        output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
+    prompt_title: str,
+    dataset_args: DatasetArgs,
+    output_path: Path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff",
 ) -> pd.DataFrame:
     """
     Load and process experiment results, including fixing Mistral data.
@@ -554,16 +570,18 @@ def load_and_process_results(
     """
     output_path_str = str(output_path)  # Convert Path to string for caching
     results = load_experiment_results(prompt_title, dataset_args, Path(output_path_str))
-    df = convert_results_to_dataframe(results)
-    return fix_mistral_data(df)
-
-
-def add_derived_columns(logit_diffs: pd.DataFrame) -> pd.DataFrame:
-    return logit_diffs.pipe(lambda df: df[df[C.MODEL] != "mistral_8x7B"])
+    return (
+        convert_results_to_dataframe(results)
+        .pipe(fix_mistral_data)
+        .pipe(merge_with_dataset_questions, dataset_args)
+        .pipe(add_derived_columns)
+    )
 
 
 def main(prompt_title: str, dataset_args: DatasetArgs):
-    df_fixed = load_and_process_results(prompt_title, dataset_args)
+    df_fixed = load_and_process_results(prompt_title, dataset_args).pipe(
+        lambda df: df[df[C.MODEL] != "mistral_8x7B"]
+    )
 
     calculate_response_changes_natural(df_fixed)
 

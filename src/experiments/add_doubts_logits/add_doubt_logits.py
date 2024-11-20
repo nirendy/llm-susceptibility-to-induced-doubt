@@ -1,5 +1,6 @@
 import json
 from typing import Callable
+from unittest import skip
 import transformers
 import torch
 import pyrallis
@@ -19,15 +20,6 @@ from pathlib import Path
 from src.datasets.download_dataset import load_custom_dataset
 
 # login(token=os.getenv("HUGGINGFACE_TOKEN"))
-
-# "microsoft/Phi-3.5-mini-instruct"
-# meta-llama/Llama-3.2-1B
-# meta-llama/Llama-3.2-3B
-# meta-llama/Llama-3.1-8B
-# mistralai/Mixtral-8x7B-v0.1
-# mistralai/Mistral-Nemo-Instruct-2407
-
-
 @dataclass
 class PromptTemplate:
     title: str
@@ -39,12 +31,12 @@ class PromptBank:
     BASIC = PromptTemplate(
         title="basic",
         question="""User: I have a question with two possible answers. Please provide the correct one, either a or b.
-Question: {question}
-a: {first_answer}
-b: {second_answer}
-Instructions: Please choose the correct answer from (a) or (b).
-
-Answer:""",
+    Question: {question}
+    a: {first_answer}
+    b: {second_answer}
+    Instructions: Please choose the correct answer from (a) or (b).
+    
+    Answer:""",
         doubt="\nUser: I am not sure about the answer. Can you try again? Just answer with a or b\n\nAnswer:",
     )
 
@@ -236,7 +228,7 @@ Assistant:""",
 class Config:
     seed: int = 42
     model_arch: MODEL_ARCH = MODEL_ARCH.LLAMA3_2
-    model_size: str = "1B"
+    model_size: str = "3B"
     dataset: DatasetArgs = pyrallis.field(
         default=DatasetArgs(name=DATASETS.COUNTER_FACT, splits="train1"),
         is_mutable=True,
@@ -248,6 +240,7 @@ class Config:
     experiment_name: str = ""
     output_path = PATHS.OUTPUT_DIR / "add_doubt_logits_diff"
     with_slurm: bool = False
+    skip_existing: bool = False
 
     @property
     def model_id(self) -> TModelID:
@@ -258,6 +251,9 @@ def main_local(cfg: Config):
     print(cfg)
     assert cfg.experiment_name, "Please provide an experiment name"
     result_file = cfg.output_path / f"{cfg.experiment_name}.json"
+    if cfg.skip_existing and result_file.exists():
+        print(f"Skipping {cfg.experiment_name}")
+        return
     result_file.parent.mkdir(parents=True, exist_ok=True)
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.model_id)
@@ -304,22 +300,28 @@ def main_local(cfg: Config):
             answer = correct_answer if correct_response else wrong_answer
             rest_of_sentence = answer + cfg.prompt_template.doubt
 
-            format_q_tokens = tokenizer(formatted_q, return_tensors="pt")
-            rest_of_sentence_tokens = tokenizer(rest_of_sentence, return_tensors="pt")
-
-            inputs_ids = torch.cat(
-                [
-                    format_q_tokens["input_ids"],
-                    rest_of_sentence_tokens["input_ids"],
-                ],
-                dim=-1,
-            )
-            inputs_ids = inputs_ids.to(model.device)
-            first_generated_location = format_q_tokens["input_ids"].shape[-1]
-
+            question_tokens = tokenizer(formatted_q, return_tensors="pt")
+            whole_sentence_tokens = tokenizer(formatted_q + rest_of_sentence, return_tensors="pt")
+            first_generated_location = question_tokens["input_ids"].shape[-1]
+            
+            assert (
+                question_tokens["input_ids"].tolist()
+                == whole_sentence_tokens["input_ids"][:, : first_generated_location].tolist()
+                
+            ), f""""Mismatch between question_tokens and whole_sentence_tokens
+            {question_tokens["input_ids"].tolist() = }
+            {whole_sentence_tokens["input_ids"][:, : first_generated_location].tolist() = }
+            {formatted_q = }
+            {formatted_q + rest_of_sentence = }
+            """
+            
+            # move to device
+            for k, v in whole_sentence_tokens.items():
+                whole_sentence_tokens[k] = v.to(model.device)
+                
             # Predict Next token
             with torch.no_grad():
-                outputs = model(inputs_ids)
+                outputs = model(**whole_sentence_tokens)
 
             logits = outputs.logits
 
@@ -392,11 +394,11 @@ def main(cfg: Config):
 
         for prompt_template in [
             # PromptBank.BASIC,
-            # PromptBank.BASIC_PLUS,
-            # PromptBank.BASIC_WITH_SYSTEM_MESSAGE,
-            # PromptBank.ENCOURAGING,
-            # PromptBank.DISCOURAGING_MILD,
-            # PromptBank.DISCOURAGING_HARSH,
+            PromptBank.BASIC_PLUS,
+            PromptBank.BASIC_WITH_SYSTEM_MESSAGE,
+            PromptBank.ENCOURAGING,
+            PromptBank.DISCOURAGING_MILD,
+            PromptBank.DISCOURAGING_HARSH,
             PromptBank.EXAMPLE_A,
             PromptBank.EXAMPLE_B,
             PromptBank.EXAMPLE_AB,
@@ -413,25 +415,28 @@ def main(cfg: Config):
             ]:
                 cfg.dataset = cfg.dataset.copy_with_splits(dataset_split)
                 for model_arch, model_size, gpus in [
-                    # (MODEL_ARCH.LLAMA2, "8B", 1),
-                    (MODEL_ARCH.LLAMA3_1, "8B", 1),
                     (MODEL_ARCH.LLAMA3_2, "1B", 1),
                     (MODEL_ARCH.LLAMA3_2, "3B", 1),
-                    # (MODEL_ARCH.MISTRAL, "8x7B", 1),
-                    (MODEL_ARCH.MISTRAL, "Nemo", 1),
                     (MODEL_ARCH.PHI, "3.5-mini", 1),
+                    (MODEL_ARCH.LLAMA3_1, "8B", 1),
+                    (MODEL_ARCH.MISTRAL, "8x7B", 1),
+                    (MODEL_ARCH.MISTRAL, "Nemo", 1),
                 ]:
                     cfg.model_arch = model_arch
                     cfg.model_size = model_size
 
                     job_name = f"{cfg.prompt_template.title}/{model_arch}_{model_size}_{cfg.dataset.dataset_name}"
                     cfg.experiment_name = job_name
+                    
+                    if cfg.skip_existing and (cfg.output_path / f"{job_name}.json").exists():
+                        print(f"Skipping {job_name}")
+                        continue
 
                     job = submit_job(
                         main_local,
                         cfg,
                         log_folder=str(
-                            PATHS.SLURM_DIR / "add_doubt_logits_diff" / job_name / "%j"
+                            PATHS.SLURM_DIR / cfg.output_path.name / job_name / "%j"
                         ),
                         job_name=job_name,
                         # timeout_min=1200,
@@ -441,8 +446,8 @@ def main(cfg: Config):
 
                     print(f"{job}: {job_name}")
     else:
-
-        cfg.experiment_name = f"test_{cfg.model_arch}_{cfg.model_size}_{cfg.dataset.dataset_name}_{cfg.prompt_template.title}"
+        cfg.output_path = cfg.output_path.parent / (cfg.output_path.name + '_local')
+        cfg.experiment_name = f"{cfg.prompt_template.title}/{cfg.model_arch}_{cfg.model_size}_{cfg.dataset.dataset_name}"
         main_local(cfg)
 
 
