@@ -1,0 +1,18 @@
+\section{Introduction}
+Large Language Models (LLMs) have revolutionized natural language processing, demonstrating remarkable capabilities in tasks ranging from text generation to complex problem-solving\cite{bubeck2023sparksartificialgeneralintelligence, bommasani2022opportunitiesrisksfoundationmodels}. However, questions persist regarding the consistency, reliability, and potential for manipulation of their outputs. This research explores the effects of iterative prompting on LLM responses, comparing models of similar size under different feedback conditions to gain insights into their behavior and decision-making processes. 
+
+Our approach involves presenting LLMs with binary-choice questions, followed by an expression of uncertainty about their initial answer, and a request to reconsider (e.g., "I am not sure about the answer. Can you try again?"). The outcomes of this interaction are explored in Experiments 1 and 2, detailed in Section \ref{sec: exp}. We then extend our investigation in Experiment \ref{sec: exp} by introducing performance feedback and iteratively posing new questions, examining how feedback and iterative questioning interact with expressions of doubt to influence model responses. Finally, in Experiment 4, we shift our focus to model confidence, as measured by output logits, and evaluate how induced doubt impacts this confidence metric. 
+
+Through this methodology, we aim to investigate several key questions:
+\begin{enumerate}
+\item How do different types of feedback impact response consistency across multiple iterations?
+\item To what extent does positive reinforcement through performance feedback lead to more confident or stable answers?
+\item How do these effects vary across different LLM architectures of comparable size, and what does this reveal about their underlying mechanisms?
+\item What are the implications of these findings for the development of more robust and reliable AI systems?
+\end{enumerate}
+% By systematically applying these iterative prompting techniques to various LLM architectures, we seek to gain insights into the malleability of LLM responses and the potential for guiding or manipulating their outputs. This research has significant implications for improving the reliability of AI-generated content, understanding the limitations of current LLM architectures, and developing more sophisticated interaction protocols for AI systems.
+% Our findings contribute to the growing body of knowledge on LLM behavior and offer practical considerations for developers, researchers, and users of AI language models. The results of this study may inform strategies for fine-tuning LLMs, designing more effective prompting techniques, and creating safeguards against potential manipulation of AI systems. Moreover, by comparing different models of similar size, we aim to identify architectural features that may influence susceptibility to various types of feedback, potentially guiding future developments in LLM design.
+To facilitate these experiments, we use the factual dataset \textit{CounterFact-Tracing}, adapted from \cite{meng2022locating}. This dataset consists of 21,919 questions, each paired with both a correct and an incorrect answer, serving as the binary-choice options in our study.
+
+In the following sections, we will detail our experimental setup, present our findings, and discuss their implications for the field of artificial intelligence and natural language processing.
+\olc{Add things we did and what are our results are here in the introduction}
