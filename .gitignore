@@ -162,3 +162,11 @@ cython_debug/
 #.idea/
 /.idea/
 add_doubt_logits/
+.vscode/settings.json
+final_submission/NLP_Project/main.aux
+final_submission/NLP_Project/main.bbl
+final_submission/NLP_Project/main.fdb_latexmk
+final_submission/NLP_Project/main.fls
+final_submission/NLP_Project/main.out
+final_submission/NLP_Project/main.synctex.gz
+.vscode/settings.json

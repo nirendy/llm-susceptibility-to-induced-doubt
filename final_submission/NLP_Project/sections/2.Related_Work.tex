@@ -1,0 +1,18 @@
+\section{Related Work}
+
+
+% Consisterncy of answers
+LLMs consistency is a widely researched topic. \cite{elazar2021measuring} investigated the consistency of pretrained language models when prompts are phrased differently. They proposed a method to enhance model consistency by modifying the loss function during training. However, this approach requires retraining the models, which may not be practical for large-scale LLMs.
+
+% Iterative prompting
+\cite{xu2023earth} explored the robustness of LLM confidence when exposed to repetitive misinformation. Their results showed that repeated exposure to misleading information can diminish the model’s confidence in correct answers, even leading to incorrect responses. However, this study primarily focused on confidence robustness rather than providing a practical framework for assessing the model's original confidence in its answers.
+
+
+\cite{krishna2024understanding} investigated strategies to enhance the truthfulness of LLM outputs through iterative prompting, while \cite{salinas2024butterfly} demonstrated how varying prompt phrasing can significantly impact LLM performance. \cite{wei2022chain} specifically shows that a technique called "Chain Of Thought" prompting improve reasoning and performance in LLMs.
+
+% Confidence and calibration measure
+Works have been done also on the ability of a model to asses its own confidence, and calibrate this assessment to improve performance. \cite{xiong2024can} Develop black-box methods to estimate the confidence in a model's answer, relying on the model assessing its own confidence. \cite{mielke2022reducing} took this further by training a calibrator model to predict the likelihood of correctness, then adjusting the responses to reduce overconfidence and improve calibration. \cite{guo2017calibration} also conducted extensive research on confidence calibration in LLMs, suggesting practical improvements during training to enhance confidence calibration.
+
+\cite{perez2022discovering} shows LLMs present a behavior called "sycophancy", where models tend to generate responses that echo user's preferred answers. This highlights the importance of careful prompt engineering to avoid unintended biases when seeking to improve model performance.
+
+Finally, \cite{liu2023trustworthy} conducted a comprehensive survey of research on LLM truthfulness and reliability, consolidating various findings and methodologies for evaluating and enhancing these aspects.
