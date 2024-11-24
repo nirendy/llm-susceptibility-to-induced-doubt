@@ -161,7 +161,7 @@ During the design of the previous experiments, we had to make several decisions 
 \begin{figure}[ht!]
   \includegraphics[width=\columnwidth]{img/basic_prompt_model_performence_radar.png}
   \caption{Illustraion of model's metrics on the baseline prompt}
-  \label{rep: Models Metrics}
+  \label{rep:Models_Metrics}
 \end{figure}
 
 \paragraph{Results and Discussion}
@@ -203,14 +203,15 @@ Table~\ref{tab:combined_results} and Figure~\ref{rep: Models average heatmap} su
 Our findings indicate:
 
 \begin{itemize}
-  \item \textbf{Positional Bias}: We observed a significant positional bias in the models' responses, that was hidden by just looking at the overall accuracy. This may indicate that the models did not entierly understand the prompt. The only model that seems to be robust to the answer positioning is phi-3.5-mini. But as we can see in Figure \ref{rep: Models average heatmap}, it comes with an expense of low Incorrectness Improvement.
-  \item \textbf{Effect of Prompt Variations}: We can see that the choise of the prompt has an effect on the model's performance. But we have not found a prompt that is significantly better than the others. The encouraging prompt seems to be the best one, but the difference is not significant. But we see that some models are more sensitive to the prompt variations than others.
-  \item \textbf{Model Strengths and Weaknesses}: We can see that the models have different strengths and weaknesses. and non of the models is the best in all metrics.
+  \item \textbf{Positional Bias}: We observed a significant positional bias in the models' responses, that was hidden by just looking at the overall accuracy. This may indicate that the models did not entierly understand the prompt. The only model that seems to be robust to the answer positioning is phi-3.5-mini. But as we can see in Figure \ref{rep:Models_Metrics}, it comes with an expense of low Incorrectness Improvement. Another interesting observation is that llama3.2-1B, that achieved 50\% accuracy on the overall accuracy, has 0\% when the correct answer was positioned first, and a 100\% accuracy when the correct answer was positioned second.
+  \item \textbf{Effect of Prompt Variations}: We can see that the choise of the prompt has an effect on the model's performance. But we have not found a prompt that is significantly better than the others. We see that some models are more sensitive to the prompt variations than others. We can see that the example prompts that may have been designed to help the models with few shot learning have confused the smaller models, and did not have a significant effect on the larger models. Except for mistral-8x7B, where the surprising results shown that the order of the examples has a significant effect on the model's performance. Specially between example ba that has the worst performance and example ab that has the best performance.
+  \item \textbf{Model Strengths and Weaknesses}: We can see from the demonstrated results in Figure \ref{rep:Models_Metrics}, that the models have different strengths and weaknesses. But no model is the best in every metric.
 \end{itemize}
 
 \paragraph{Conclusion}
 
 Although we found deviations in the models' performance based on prompt variations and answer positioning, we are not concerned about our choice of a baseline prompt, as it seems to be working fairly well. But we understand that this may require further investigation in future experiments.
+Another takeaway, is that just looking at the change of accuracy is not enough to evaluate the models' performance
 
 \begin{figure}[ht!]
   \includegraphics[width=\columnwidth]{img/model_performence_on_prompts.png}
@@ -231,12 +232,15 @@ Although we found deviations in the models' performance based on prompt variatio
 
 In the previous experiments, we focused on accuracy based metrics to evaluate the models' performance. However, the way that models produces their answers is not binary, and using only accuracy as a metric may not provide a full picture of the models' decision-making process. In this experiment, we aim to analyze the models' confidence in their answers by examining the difference in logits between the correct and incorrect answer tokens. By analyzing the confidence shifts after expressing doubt, we assess the models' ability to adjust their internal certainty and correct their answers.
 
-For each question, we sampled the confidence (logit difference between the correct and incorrect answer tokens) at 2 points, as marked in the baseline template \ref{fig:baseline_prompt_template}, \textbf{Point A} (1st response / before doubt) and \textbf{Point B} (2nd response / after doubt).
-
-In \textbf{Point A}, models can either answer \textbf{a} or \textbf{b} as their initial response. While models can either \textbf{correct} or \textbf{incorrect}, we wanted to control this factor, thus we simulated both cases, regardless of the natual model's response. so in fact, for each question, we sampled 3 logit differences, one in \text{Point A} and two in \text{Point B}, one for each case of the model's initial response.
-In addional, based on the results of the previous experiment, we found out that the answer positioning has a significant impact on the models' performance. Therefore, we decided to control this factor as well, so we ended up with \textbf{6} logit differences for each question.
-
 \paragraph{Experimental Setup}
+
+\begin{enumerate}
+  \item For each question, we sampled the confidence (logit difference between the correct and incorrect answer tokens) at 2 points, as marked in the baseline template \ref{fig:baseline_prompt_template}, \textbf{Point A} (1st response / before doubt) and \textbf{Point B} (2nd response / after doubt).
+  \item In \textbf{Point A}, models can either answer \textbf{a} or \textbf{b} as their initial response. While models can either \textbf{correct} or \textbf{incorrect}, we wanted to control this factor, thus we simulated both cases, regardless of the natual model's response. so in fact, for each question, we sampled 3 logit differences, one in \text{Point A} and two in \text{Point B}, one for each case of the model's initial response.
+  \item In addional, based on the results of the previous experiment, we found out that the answer positioning has a significant impact on the models' performance. Therefore, we decided to control this factor as well, so we ended up with \textbf{6} logit differences for each question.
+
+
+\end{enumerate}
 
 \begin{itemize}
   \item Number of questions: 1,500
@@ -245,26 +249,24 @@ In addional, based on the results of the previous experiment, we found out that 
       \item \textbf{Correct Answer Position}: Correct answer positioned at \textbf{a} or \textbf{b}.
       \item \textbf{First Response}: Initial response is correct or mistaken.
     \end{itemize}
-  \item \textbf{Evaluation Metrics}:
-    \begin{itemize}
-      \item \textbf{Baseline Confidence}: Confidence at Point A (initial response).
-      \item \textbf{Adjusted Confidence}: Confidence at Point B (after expressing doubt).
-      \item \textbf{Change in Confidence} ($\Delta$ Confidence): Difference between adjusted and baseline confidence.
-    \end{itemize}
 \end{itemize}
 
 \paragraph{Results and Discussion}
 
-Figure~\ref{fig:models_confidence_per_initial_correctness} illustrates the average confidence for each model across the 6 confidence samples, separated by the initial response correctness. Figure~\ref{fig:models_confidence} illustrate the distribution of the confidence in the second response, in relation to the initial response.
+Figure~\ref{fig:models_confidence_per_initial_correctness} illustrates the average confidence for each model across the 6 confidence samples, separated by the initial response correctness. Figure~\ref{fig:models_confidence} illustrate the distribution of the confidence in the second response, in relation to the initial response. By looking at the results, we can learn that indeed the confidence reveals characteristics of some of the models that were not visible in the accuracy metrics.
 \begin{itemize}
-  \item \textbf{Size do matter}: We can see that that llama3.2 3B is almost always the better than the 1B model. And that high a postive sign for the correctness of the response.
-  \item \textbf{Confidence Shifts}: We observed that models generally exhibited a change in confidence after expressing doubt.
+  \item \textbf{Natural Confidence}: We can see that the models that were correct in their initial response, generally had higher confidence in their answers, and mostly maintained their confidence after expressing doubt. While the models that were correct in their initial response, generally had higher confidence in their answers, and mostly maintained their confidence after expressing doubt.
+  \item \textbf{Confidence Shifts}: In figure \ref{fig:models_confidence}, generally we see that confidence shifts are  not so common. Interestingly, we can see that the model phi-3.5-mini, acting a bit different than the others, and specifically, if it happened to be correct in its initial response, it tends to keep its confidence.
+  \item \textbf{Close to 0 Confidence}: By looking at confidence, we can now speak on questions that the model was debating about, and we can see that by the fact that their confidence was close to 0. Questions that the model was incorrect on, were closer to 0 confidence, than the questions that the model was correct on.
+  \item \textbf{Slope}: In figure \ref{fig:models_confidence} we can see the relation between the initial response correctness are correlated with the confidence in the second response. In the top right graph, we can see that mistral-8x7B, slope is Surprisingly low, meaning that the model doesn't consider it's first reponse correctness as an important factor in its second response, in contrast to the other models.
+  \item \textbf{Size do matter}: We can see that llama3.2 3B is almost always the better than the 1B model. And that high a postive sign for the correctness of the response.
 \end{itemize}
 
 \begin{figure*}[ht!]
-  \includegraphics[width=\textwidth]{img/first_vs_last_logit_diff_on_baseline_copy.png}
+  \includegraphics[width=\textwidth]{img/first_vs_last_logit_diff_on_baseline.png}
   % \includegraphics[width=\textwidth]{img/confidence_distribution_on_baseline.png}
-  \caption{Model Confidence distribution on the baseline prompt, columns represent whether the correct answer was positioned first or second, and rows represent the models' initial response correctness.}
+  \caption{Model Confidence distribution on the baseline prompt, columns represent whether the correct answer was positioned first or second, and rows represent the models' initial response correctness. Points are plotted with opacity = 0.05. The legend does not hide seenable points. \\
+  Also note that some of the points are not natural, as they are simulated to control the initial response correctness. For example, for the points that were naturally correct, are plotted in the the right quadrants at the top graphs, and in the left quadrants in the bottom graphs.}
   \label{fig:models_confidence}
 \end{figure*}
 

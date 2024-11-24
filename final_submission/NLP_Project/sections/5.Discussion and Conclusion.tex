@@ -1,1 +1,39 @@
 \section{Discussion and Conclusion}
+
+This study investigated the effects of expressions of doubt, and iterative feedback on the performance of large language models (LLMs) of varying architectures and sizes. By analyzing their responses to binary-choice questions across multiple experiments, we uncovered key insights into how LLMs process uncertainty and adjust their outputs.
+
+Our findings highlight the nuanced interplay between model size, feedback, and prompting strategies. Smaller models consistently showed a decline in accuracy when doubt was introduced, but when diving deeper into the results, and controlling for the posi
+ suggesting susceptibility to uncertainty due to limited internal representations and weaker generalization. These models were prone to "correct-to-incorrect" transitions (V$\to$X) (Experiment 2), further emphasizing their fragility. Conversely, larger models demonstrated the ability to leverage doubt prompts to reassess their initial responses, improving accuracy through "incorrect-to-correct" transitions (X$\to$V). They also adjusted their confidence levels effectively, as seen in the logit analysis (Experiment 4), reflecting robust decision-making processes.
+
+Prompt variations and answer positioning (Experiment 3) revealed critical areas for improvement. Positional bias significantly impacted smaller models, suggesting that they struggled to interpret prompts fully. While larger models were more robust to these variations, example-based prompts—designed for few-shot learning—had mixed effects. Surprisingly, certain configurations (e.g., example order) improved performance in larger models like Mixtral but confused smaller ones, illustrating the need for tailored prompting strategies.
+
+Iterative feedback combined with doubt (Experiment 5) showed mixed results. While feedback enhanced accuracy in some cases, iterative questioning alone—without doubt—yielded similar improvements, especially in larger models. This suggests that introducing doubt may not always be necessary to stabilize and enhance performance, particularly during a "warm-up" phase. Stable models, such as Phi, exhibited consistent performance regardless of the iterative strategy, while others, like Nemo, showed unique behavior where accuracy improved post-doubt but degraded with feedback.
+
+Taken together, these results emphasize the importance of model size in determining susceptibility to uncertainty and the utility of iterative prompting strategies. Larger models benefit from robust internal mechanisms that enable them to adapt effectively to feedback and doubt, while smaller models require targeted interventions to improve resilience.
+
+\subsection{Limitations}
+This research focused on binary-choice questions, which may not fully generalize to more complex tasks. Additionally, the scope of model architectures and sizes, as well as the limited exploration of feedback strategies, may constrain the broader applicability of our findings. Future studies should address these gaps to provide a more comprehensive understanding of LLM behavior.
+
+\section{Future Work}
+
+Building on the insights from this study, we propose several directions for further exploration:
+
+\begin{enumerate}
+    \item \textbf{Mitigating Positional Bias:} To address the positional bias observed in smaller models (Experiment 3), future work could explore adversarial training techniques or design position-invariant prompts. Reshuffling correct answer positions during fine-tuning or employing position-agnostic embedding strategies may improve robustness.
+    
+    \item \textbf{Enhancing Small Model Calibration:} Given the erratic confidence shifts and response instability in smaller models (Experiments 2 and 4), researchers could integrate auxiliary calibration modules or hybrid retrieval systems to strengthen decision-making under uncertainty. Techniques like self-consistency could also be explored.
+    
+    \item \textbf{Refining Iterative Feedback Strategies:} Feedback had an inconsistent impact on accuracy (Experiment 5). Investigating reinforcement learning-based feedback mechanisms or dynamic feedback strategies tailored to model size and architecture could yield better outcomes. A deeper analysis of feedback phrasing and frequency may also provide actionable insights.
+    
+    \item \textbf{Dynamic Confidence Monitoring:} Leveraging logit differences (Experiment 4), real-time confidence monitoring systems could be implemented to dynamically adjust model outputs or prompting strategies based on confidence levels. This could enhance safety and reliability in critical applications.
+    
+    \item \textbf{Generalizing to Complex Tasks:} Extending the experiments to multi-step reasoning tasks or open-ended question generation would validate the applicability of findings beyond binary-choice questions. This would help assess whether the observed behaviors generalize across task formats.
+    
+    \item \textbf{Domain-Specific Testing:} Evaluating LLM performance in specialized domains (e.g., medical, legal datasets) could reveal whether domain-specific knowledge influences response patterns, particularly under doubt or feedback conditions.
+    
+    \item \textbf{Long-Term Iterative Effects:} Exploring how repeated questioning and feedback affect model performance over extended interactions could reveal whether models plateau in accuracy or degrade due to overexposure to uncertainty.
+    
+    \item \textbf{Architecture-Specific Adaptations:} Tailored interventions, such as guided questioning for smaller models or selective doubt prompts for larger ones, could optimize performance. Studying how architecture-specific traits impact response adaptation would provide deeper insights into LLM design.
+\end{enumerate}
+
+This research lays the foundation for understanding how LLMs handle uncertainty and iterative questioning, paving the way for more robust, reliable, and adaptable AI systems. By addressing the outlined future work, we can improve model resilience and develop tailored strategies that enhance performance across diverse applications.
