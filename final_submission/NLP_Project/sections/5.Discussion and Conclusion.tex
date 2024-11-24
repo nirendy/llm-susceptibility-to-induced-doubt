@@ -13,27 +13,3 @@ Taken together, these results emphasize the importance of model size in determin
 
 \subsection{Limitations}
 This research focused on binary-choice questions, which may not fully generalize to more complex tasks. Additionally, the scope of model architectures and sizes, as well as the limited exploration of feedback strategies, may constrain the broader applicability of our findings. Future studies should address these gaps to provide a more comprehensive understanding of LLM behavior.
-
-\section{Future Work}
-
-Building on the insights from this study, we propose several directions for further exploration:
-
-\begin{enumerate}
-    \item \textbf{Mitigating Positional Bias:} To address the positional bias observed in smaller models (Experiment 3), future work could explore adversarial training techniques or design position-invariant prompts. Reshuffling correct answer positions during fine-tuning or employing position-agnostic embedding strategies may improve robustness.
-    
-    \item \textbf{Enhancing Small Model Calibration:} Given the erratic confidence shifts and response instability in smaller models (Experiments 2 and 4), researchers could integrate auxiliary calibration modules or hybrid retrieval systems to strengthen decision-making under uncertainty. Techniques like self-consistency could also be explored.
-    
-    \item \textbf{Refining Iterative Feedback Strategies:} Feedback had an inconsistent impact on accuracy (Experiment 5). Investigating reinforcement learning-based feedback mechanisms or dynamic feedback strategies tailored to model size and architecture could yield better outcomes. A deeper analysis of feedback phrasing and frequency may also provide actionable insights.
-    
-    \item \textbf{Dynamic Confidence Monitoring:} Leveraging logit differences (Experiment 4), real-time confidence monitoring systems could be implemented to dynamically adjust model outputs or prompting strategies based on confidence levels. This could enhance safety and reliability in critical applications.
-    
-    \item \textbf{Generalizing to Complex Tasks:} Extending the experiments to multi-step reasoning tasks or open-ended question generation would validate the applicability of findings beyond binary-choice questions. This would help assess whether the observed behaviors generalize across task formats.
-    
-    \item \textbf{Domain-Specific Testing:} Evaluating LLM performance in specialized domains (e.g., medical, legal datasets) could reveal whether domain-specific knowledge influences response patterns, particularly under doubt or feedback conditions.
-    
-    \item \textbf{Long-Term Iterative Effects:} Exploring how repeated questioning and feedback affect model performance over extended interactions could reveal whether models plateau in accuracy or degrade due to overexposure to uncertainty.
-    
-    \item \textbf{Architecture-Specific Adaptations:} Tailored interventions, such as guided questioning for smaller models or selective doubt prompts for larger ones, could optimize performance. Studying how architecture-specific traits impact response adaptation would provide deeper insights into LLM design.
-\end{enumerate}
-
-This research lays the foundation for understanding how LLMs handle uncertainty and iterative questioning, paving the way for more robust, reliable, and adaptable AI systems. By addressing the outlined future work, we can improve model resilience and develop tailored strategies that enhance performance across diverse applications.

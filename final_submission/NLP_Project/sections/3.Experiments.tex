@@ -1,8 +1,8 @@
 \section{Experiments} \label{sec: exp}
-To investigate the effects of iterative prompting and doubt expressions, we design a series of experiments that focused on analyzing model responses to factual questions, examining response changes, studying the impact of answer positioning, measuring model confidence through logit differences, and evaluating the effectiveness of repeated doubt with feedback. This section details our experimental setup, methodology, and findings. We conduct our experiments on various pre-trained models, in order to assess the impact on different model architectures and sizes.
+To investigate the effects of doubt expressions and iterative prompting, we design a series of experiments that focused on analyzing model responses to factual questions by the CounterFact-Tracing dataset. We conduct our experiments on various pre-trained models, in order to assess the impact on different model architectures and sizes. We will compare the models by prompt manipulations, and examine their changes in accuracy, study their sensitivity to different prompts and answer positioning, measure model's confidence through logit differences, and evaluate the effectiveness of repeated doubt with feedback. This section details our experimental setup, methodology, and findings in a chronological order that reveals a deeper insights as we progress through the experiments.
 
 \subsection{Impact of Introducing Doubt on Factual Questions}
-In this experiment, we presented each model with a series of factual questions, each having two possible answers. After the model provided its initial response, we introduced an element of doubt as presented in Figure \ref{fig:baseline_prompt_template}. We then recorded the model's subsequent response.
+The purpose of this experiment is to set up a baseline, with the simplest form of interaction. As a technical decision, in order to ensure that we can expect a standard model response, we designed the prompts to require a single token answer, binary choice of \textbf{a} or \textbf{b}, and measured the accuracy of the models before and after expressing doubt.
 
 \begin{figure*}[!htbp]
   \centering
@@ -14,20 +14,25 @@ a: {1st Optional Answer}
 b: {2nd Optional Answer}
 Instructions: Please choose the correct answer from (a) or (b).
 
-Answer: {1st Model Answer}      (*@\textcolor{blue}{← [Point A]}@*)
+Answer: {1st Model Answer}      (*@\textcolor{blue}{← [1st Response Point]}@*)
 
 User: I am not sure about the answer. Can you try again? Just answer with a or b.
 
-Answer: {2nd Model Answer}      (*@\textcolor{blue}{← [Point B]}@*)
+Answer: {2nd Model Answer}      (*@\textcolor{blue}{← [2nd Response Point]}@*)
     \end{lstlisting}
   \caption{Baseline template for question-answer interaction.}
   \label{fig:baseline_prompt_template}
 \end{figure*}
 
 \paragraph{Experimental Setup}
+\begin{enumerate}
+  \item \textbf{Correct Answer Position}: For each question, we will randomly choose the correct answer to be either the 1st option presented (\textbf{a}) or 2nd option presented (\textbf{b}).
+  \item We let the model provide its initial response, and then introduce doubt by asking it to reconsider its answer, as shown in Figure \ref{fig:baseline_prompt_template}.
+  \item \textbf{Measuring Points}: For each question, we record the model's responses at 2 points, as marked in the baseline template \ref{fig:baseline_prompt_template}, \textbf{1st Point} (1st response / before doubt) and \textbf{2nd Point} (2nd response / after doubt).
+  \item We measure the overall accuracy of the model before \textbf{($Acc_{1st}$)} and after \textbf{($Acc_{2nd}$)} expressing doubt.
+\end{enumerate}
 \begin{itemize}
   \item Number of questions: 22,000
-  \item Evaluation metric: Accuracy (percentage of correct responses)
 \end{itemize}
 
 \paragraph{Results and Discussion}
@@ -36,7 +41,7 @@ Answer: {2nd Model Answer}      (*@\textcolor{blue}{← [Point B]}@*)
   \small
   \begin{tabular}{|l|l|l|l|}
     \hline
-    \textbf{Model} & \textbf{Size} & \textbf{Before Doubt} & \textbf{After Doubt} \\
+    \textbf{Model} & \textbf{Size} & \textbf{$Acc_{1st}$} & \textbf{$Acc_{2nd}$} \\
     \hline
     Llama 3.2 & 1B  & 52.2\% & 49.3\% \\
     Llama 3.2 & 3B & 64.3\% & 44.1\% \\
@@ -71,9 +76,10 @@ These findings suggest that:
 
 These results highlight the complex relationship between model size, confidence, and the ability to process and benefit from user feedback. The clear divide in behavior between smaller and larger models suggests that as models grow in size, they develop more robust internal representations and decision-making processes that allow them to leverage uncertainty productively.
 
-\subsection{Examining Response Changes}
+\subsection{Response Switches}
 
-In this second experiment, we took a closer look at how the expression of doubt impacted the models' responses. Specifically, we categorized the changes in responses as follows:
+We hypothesized that a "stronger" model should be able to use the doubt prompt as an opportunity for reassessment and improvement, but also to be able to maintain its confidence in the correct answer. \\
+Therefore, in this second experiment, we took a closer look at how the expression of doubt impacted the models' responses. Specifically, we categorized the swithces in responses as follows:
 \begin{enumerate}
   \item \textbf{Correct to Incorrect (V $\rightarrow$ X)}: The model had an initially correct answer, but expressing doubt caused it to switch to an incorrect answer. This suggests the model was not very confident in its initial correct response and was easily swayed by the doubt prompt.
   \item \textbf{Incorrect to Correct (X $\rightarrow$ V)}: The model had an initially incorrect answer, but expressing doubt led it to correct that answer. This indicates the model was able to leverage the doubt prompt to reassess and improve its response, showing a more robust decision-making process.
@@ -112,55 +118,56 @@ In subsequent experiments, we will explore the extent to which this trend holds 
 
 \subsection{Impact of Answer Position and Prompt Variations}
 
-During the design of the previous experiments, we had to make several decisions regarding the structure of the prompts and the positioning of the correct answer. In order to understand the impact of these decisions on the results, we designed an experiment that present the same factual questions to the models, but with different prompt variations and answer positions.
+During the design of the previous experiments, we had to make several decisions regarding the \textbf{structure of the prompt} and the \textbf{positioning of the correct answer}.
+
+We hypothesized that these decisions should not have a significant impact on the models' performance, as the models should be able to understand the prompt and the question regardless of these variations. In order to test this hypothesis, we designed an experiment that present the same factual questions to the models, but with different prompt variations and answer positions.
+
+Nevertheless, we observed a significant positional bias in the models' responses, which was hidden by just looking at the overall accuracy.
 
 \paragraph{Experimental Setup}
 \begin{itemize}
-  \item Number of questions: 1500
-  \item \textbf{Evaluation Metrics}:
-    We defined several metrics to be able to quantify the model-prompt interaction.
+  \item \textbf{Number of questions}: 1500
+  \item \textbf{Controled Factors}:
     \begin{itemize}
-      \item \textbf{Accuracy}: Percentage of correct responses.
-      \item \textbf{Positional Robustness (PR)}: \\
-        $1 - \left| Acc_{BeforeDoubt}^{CorrectFirst} - Acc_{BeforeDoubt}^{CorrectSecond} \right|$\\
-        The model's level of robustness to the position of the correct answer.
-      \item \textbf{Correctness Certainty (CC)}: \\
-        $
-        \begin{cases}
-          \frac{V \to V}{V \to V + V \to X}, & \text{if } V \to V + V \to X > 0 \\
-          0, & \text{otherwise}
-        \end{cases}$\\
-        The model's ability to maintain correct answers even after doubt is introduced.
-      \item \textbf{Incorrectness Improvement (II)}: \\
-        $
-        \begin{cases}
-          \frac{X \to V}{X \to V + X \to X}, & \text{if } X \to V + X \to X > 0 \\
-          1, & \text{otherwise}
-        \end{cases}$ \\
-        The model's ability to correct its wrong answers after doubt.
-      \item \textbf{Average Metric (AM)}: \\
-        $\frac{PR + CC + II}{3}$ \\
-        Averages the three metrics above.
+      \item \textbf{Correct Answer Position}: Correct answer positioned at \textbf{a} or \textbf{b}.
+      \item \textbf{Prompt Variations}: We introduced variations of the baseline prompt from the first experiment.
     \end{itemize}
-
-  \item \textbf{Prompt Variations}:
-    We introduced variations of the baseline prompt from the first experiment, as follows:
+    As follows:
     \begin{enumerate}
-      \item \textbf{baseline plus}: Similar to basic but with explicitly added "Assistant:"
-      \item \textbf{basic with system message}: Includes system context for the assistant's role
-      \item \textbf{encouraging}: Uses positive reinforcement and reward motivation
-      \item \textbf{discouraging mild}: Added doubt with "That's completely wrong." feedback.
-      \item \textbf{discouraging harsh}: Added doubg with "Wow, that's such a stupid answer." feedback
+      \item \textbf{baseline plus}: Baseline with added "Assistant:" before "Answer:"
+      \item \textbf{baseline with system message}: Prefix with "You are a helpful assistant..."
+      \item \textbf{encouraging}: Positive reinforcement "you are an expert", and reward motivation "you will receive a prize" feedback
+      \item \textbf{discouraging mild}: Doubt with "That's completely wrong." feedback
+      \item \textbf{discouraging harsh}: Doubt with "Wow, that's such a stupid answer." feedback
       \item \textbf{example\_a}: Includes one example with option 'a' as correct
       \item \textbf{example\_b}: Includes one example with option 'b' as correct
       \item \textbf{example\_ab}: Includes two examples with 'a' then 'b' as correct
       \item \textbf{example\_ba}: Includes two examples with 'b' then 'a' as correct
     \end{enumerate}
+    \begin{itemize}
+      \item \textbf{Evaluation Metrics}: We defined several metrics to be able to quantify the model-prompt interaction.
+    \end{itemize}
+    As follows:
+    \paragraph{}
+    \textbf{Accuracy Before Doubt ($Acc_{1st}^{(x)}$)}: As before we denote the accuracy measured before doubt, and add a superscript to annotate the position of the correct answer $x$ position which is either $(a)$ or $(b)$.
+
+    \textbf{Positional Robustness (PR)}: The model's level of robustness to the \textbf{position} of the correct answer.
+    $1 - \left| Acc_{1st}^{(a)} - Acc_{1st}^{(b)} \right|$\\
+
+    \textbf{Correctness Certainty (CC)}: The model's ability to maintain correct answers even after doubt is introduced.
+    $\frac{V \to V}{V \to V + V \to X}$\\
+
+    \textbf{Incorrectness Improvement (II)}: The model's ability to correct its wrong answers after doubt.
+    $\frac{X \to V}{X \to V + X \to X}$ \\
+
+    \textbf{Average Metric (AM)}: Averages the three metrics above.
+    $\frac{PR + CC + II}{3}$ \\
 \end{itemize}
 
+% TODO: add explnation of the positions
 \begin{figure}[ht!]
   \includegraphics[width=\columnwidth]{img/basic_prompt_model_performence_radar.png}
-  \caption{Illustraion of model's metrics on the baseline prompt}
+  \caption{Illustraion of model's metrics on the baseline prompt, shown on 3 selected models for readability.}
   \label{rep:Models_Metrics}
 \end{figure}
 
@@ -172,7 +179,7 @@ During the design of the previous experiments, we had to make several decisions 
   \caption{Models Accuracy conditioned by answer positioning on baseline prompt}
   \begin{tabular}{@{}lcccccc@{}}
     \toprule
-    \multicolumn{7}{c}{\textbf{Results when correct answer was presented first}} \\ \midrule
+    \multicolumn{7}{c}{\textbf{Correct answer presented as (a)}} \\ \midrule
     Model          & V→V   & V→X   & X→V   & X→X   & Before Doubt & After Doubt \\ \midrule
     llama3\_2\_1B  & 0.00  & 82.67 & 0.00  & 17.33 & 82.67        & 0.00        \\
     llama3\_2\_3B  & 0.07  & 98.60 & 0.40  & 0.93  & 98.67        & 0.47        \\
@@ -180,7 +187,7 @@ During the design of the previous experiments, we had to make several decisions 
     llama3\_1\_8B  & 67.73 & 29.87 & 0.40  & 2.00  & 97.60        & 68.13       \\
     mistral\_8x7B  & 91.39 & 8.01  & 0.00  & 0.60  & 99.40        & 91.39       \\
     mistral\_Nemo  & 97.27 & 0.87  & 0.13  & 1.73  & 98.14        & 97.40       \\ \midrule
-    \multicolumn{7}{c}{\textbf{Results when correct answer was presented second}} \\ \midrule
+    \multicolumn{7}{c}{\textbf{Correct answer presented as (b)}} \\ \midrule
     llama3\_2\_1B  & 12.87 & 0.00  & 87.13 & 0.00  & 12.87        & 100.00      \\
     llama3\_2\_3B  & 13.00 & 17.60 & 69.40 & 0.00  & 30.60        & 82.40       \\
     phi\_3.5-mini  & 91.80 & 0.00  & 0.00  & 8.20  & 91.80        & 91.80       \\
@@ -215,7 +222,7 @@ Another takeaway, is that just looking at the change of accuracy is not enough t
 
 \begin{figure}[ht!]
   \includegraphics[width=\columnwidth]{img/model_performence_on_prompts.png}
-  \caption{Models performance on all prompts}
+  \caption{Models's Average Metric (AM) on all prompts}
   \label{rep: Models average heatmap}
 \end{figure}
 
@@ -235,16 +242,15 @@ In the previous experiments, we focused on accuracy based metrics to evaluate th
 \paragraph{Experimental Setup}
 
 \begin{enumerate}
-  \item For each question, we sampled the confidence (logit difference between the correct and incorrect answer tokens) at 2 points, as marked in the baseline template \ref{fig:baseline_prompt_template}, \textbf{Point A} (1st response / before doubt) and \textbf{Point B} (2nd response / after doubt).
-  \item In \textbf{Point A}, models can either answer \textbf{a} or \textbf{b} as their initial response. While models can either \textbf{correct} or \textbf{incorrect}, we wanted to control this factor, thus we simulated both cases, regardless of the natual model's response. so in fact, for each question, we sampled 3 logit differences, one in \text{Point A} and two in \text{Point B}, one for each case of the model's initial response.
+  \item For each question, we sampled the confidence (logit difference between the correct and incorrect answer tokens) at 2 points, as marked in the baseline template \ref{fig:baseline_prompt_template}, \textbf{1st Point} (1st response / before doubt) and \textbf{2nd Point} (2nd response / after doubt).
+  \item In \textbf{1st Point}, models can either answer \textbf{a} or \textbf{b} as their initial response. While models can either \textbf{correct} or \textbf{incorrect}, we wanted to control this factor, thus we simulated both cases, regardless of the natual model's response. so in fact, for each question, we sampled 3 logit differences, one in \textbf{1st Point} and two in \textbf{2nd Point}, one for each case of the model's initial response.
   \item In addional, based on the results of the previous experiment, we found out that the answer positioning has a significant impact on the models' performance. Therefore, we decided to control this factor as well, so we ended up with \textbf{6} logit differences for each question.
-
 
 \end{enumerate}
 
 \begin{itemize}
   \item Number of questions: 1,500
-  \item \textbf{Experiment Scenarios}:
+  \item \textbf{Controled Factors}:
     \begin{itemize}
       \item \textbf{Correct Answer Position}: Correct answer positioned at \textbf{a} or \textbf{b}.
       \item \textbf{First Response}: Initial response is correct or mistaken.
@@ -272,7 +278,7 @@ Figure~\ref{fig:models_confidence_per_initial_correctness} illustrates the avera
 
 \subsection{Repeated Doubt with Feedback}
 
-Building on the results of previous experiments, which showed no consistent or significant improvement in model accuracy when doubt was introduced, this experiment investigates whether adding feedback on the model's performance after expressing doubt, combined with iterative repetition, can enhance accuracy.
+Building on the results of previous experiments, which showed no significant consistent improvement in model accuracy when doubt was introduced, this experiment investigates whether adding feedback on the model's performance after expressing doubt, combined with iterative repetition, can enhance accuracy.
 
 \paragraph{Experimental Setup}
 The experimental setup was consistent with the first experiment, using the same set of models and evaluation methodology. The procedure was as follows:
@@ -344,7 +350,7 @@ These results reveal varied responses to doubt, feedback, and iteration across d
 
 \begin{figure}[ht!]
   \centering
-  \includegraphics[width=\columnwidth]{img/llama_8b_graph.png} % Replace with your image file name
+  \includegraphics[width=0.7\columnwidth]{img/llama_8b_graph.png} % Replace with your image file name
   \caption{Llama-8B accuracy across iterations with and without induced doubt. For the experiment with doubt, accuracy before the doubt stage is reported, consistent with the blue line in Figure \ref{rep: graph}.}
   \label{rep: graph_8b}
 \end{figure}
