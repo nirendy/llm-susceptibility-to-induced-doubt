@@ -161,6 +161,10 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 /.idea/
+/data/
+/slurm/
+/output/
+/.vscode/
 add_doubt_logits/
 .vscode/settings.json
 final_submission/NLP_Project/main.aux
