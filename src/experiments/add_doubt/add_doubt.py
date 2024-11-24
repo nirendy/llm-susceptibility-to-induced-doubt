@@ -57,7 +57,7 @@ def main_local(cfg: Config):
         "text-generation",
         model=cfg.model_id,
         tokenizer=tokenizer,
-        # torch_dtype=torch.bfloat16,
+        torch_dtype=torch.bfloat16,
         trust_remote_code=True,
         device_map="auto",
     )
