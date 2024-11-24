@@ -12,7 +12,8 @@
 \usepackage{times}
 \usepackage{latexsym}
 \usepackage{amsmath}
-
+\usepackage{enumitem} % For customizing list spacing
+\usepackage{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{caption}  % For custom captions
@@ -20,10 +21,10 @@
 
 % Define a custom style for the code block
 \lstdefinestyle{customcode}{
-    basicstyle=\ttfamily,       % Monospaced font for code-like appearance
-    breaklines=true,            % Automatically wrap lines
-    frame=single,               % Frame around the code block
-    escapeinside={(*@}{@*)},    % Enable LaTeX commands inside the code block
+  basicstyle=\ttfamily,       % Monospaced font for code-like appearance
+  breaklines=true,            % Automatically wrap lines
+  frame=single,               % Frame around the code block
+  escapeinside={(*@}{@*)},    % Enable LaTeX commands inside the code block
 }
 
 % For proper rendering and hyphenation of words containing Latin characters (including in bib files)
@@ -71,9 +72,9 @@
 %         Author 3 \\ Address line \\ ... \\ Address line}
 
 \author{
-Or Lichter \\ 204169775  \And  
-Nir Endy \\ 205686397 \And  
-Ron Tsibulsky \\ 204737779
+  Or Lichter \\ 204169775  \And
+  Nir Endy \\ 205686397 \And
+  Ron Tsibulsky \\ 204737779
 }
 \newcommand{\ron}[1]{{\color{olive}\textbf{Ron:} #1}}
 % \newcommand{\endy}[1]{{\color{blue} #1}}

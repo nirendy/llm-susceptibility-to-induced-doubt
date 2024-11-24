@@ -1,23 +1,20 @@
 \section{Future Work}
 
-Building on the insights from this study, we propose several directions for further exploration:
+Building on these findings, we propose several directions for future research and practical development to address the identified limitations and expand the scope of this study.
 
-\begin{enumerate}
-  \item \textbf{Mitigating Positional Bias:} To address the positional bias observed in smaller models (Experiment 3), future work could explore adversarial training techniques or design position-invariant prompts. Reshuffling correct answer positions during fine-tuning or employing position-agnostic embedding strategies may improve robustness.
+\textbf{Advanced Prompt Engineering}
+Future work should focus on designing prompts that reduce positional bias and test the boundaries of prompt comprehension. Incorporating dynamic prompts that adapt to model-specific behaviors could further enhance robustness.
 
-  \item \textbf{Enhancing Small Model Calibration:} Given the erratic confidence shifts and response instability in smaller models (Experiments 2 and 4), researchers could integrate auxiliary calibration modules or hybrid retrieval systems to strengthen decision-making under uncertainty. Techniques like self-consistency could also be explored.
 
-  \item \textbf{Refining Iterative Feedback Strategies:} Feedback had an inconsistent impact on accuracy (Experiment 5). Investigating reinforcement learning-based feedback mechanisms or dynamic feedback strategies tailored to model size and architecture could yield better outcomes. A deeper analysis of feedback phrasing and frequency may also provide actionable insights.
+\textbf{Dataset Diversity}
+Using datasets with varying complexity and domain specificity will help evaluate how contextual factors influence model performance and robustness.
 
-  \item \textbf{Dynamic Confidence Monitoring:} Leveraging logit differences (Experiment 4), real-time confidence monitoring systems could be implemented to dynamically adjust model outputs or prompting strategies based on confidence levels. This could enhance safety and reliability in critical applications.
+\textbf{Doubt expressions}
+In this work we did not find consistent reactions of LLMs to doubt, but we found other factors that influence model reactions and thus may interact with the effect of doubt. Controling for more such factors may lead to better understanding of models reaction to doubt. 
+% \subsection{Practical Applications}
 
-  \item \textbf{Generalizing to Complex Tasks:} Extending the experiments to multi-step reasoning tasks or open-ended question generation would validate the applicability of findings beyond binary-choice questions. This would help assess whether the observed behaviors generalize across task formats.
+\textbf{Confidence Calibration}
+Confidence metrics should be integrated into LLM systems to enable real-time evaluation and correction of responses. Developing tools to visualize and adjust confidence levels could aid applications in fields like education, healthcare, and customer service.
 
-  \item \textbf{Domain-Specific Testing:} Evaluating LLM performance in specialized domains (e.g., medical, legal datasets) could reveal whether domain-specific knowledge influences response patterns, particularly under doubt or feedback conditions.
-
-  \item \textbf{Long-Term Iterative Effects:} Exploring how repeated questioning and feedback affect model performance over extended interactions could reveal whether models plateau in accuracy or degrade due to overexposure to uncertainty.
-
-  \item \textbf{Architecture-Specific Adaptations:} Tailored interventions, such as guided questioning for smaller models or selective doubt prompts for larger ones, could optimize performance. Studying how architecture-specific traits impact response adaptation would provide deeper insights into LLM design.
-\end{enumerate}
-
-This research lays the foundation for understanding how LLMs handle uncertainty and iterative questioning, paving the way for more robust, reliable, and adaptable AI systems. By addressing the outlined future work, we can improve model resilience and develop tailored strategies that enhance performance across diverse applications.
+\textbf{Iterative Interaction Frameworks}
+Future applications can leverage iterative questioning to enhance user-model interactions. 
