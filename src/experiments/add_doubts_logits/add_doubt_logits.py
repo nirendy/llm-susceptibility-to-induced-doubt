@@ -250,6 +250,7 @@ class Config:
 def main_local(cfg: Config):
     print(cfg)
     assert cfg.experiment_name, "Please provide an experiment name"
+    
     result_file = cfg.output_path / f"{cfg.experiment_name}.json"
     if cfg.skip_existing and result_file.exists():
         print(f"Skipping {cfg.experiment_name}")
@@ -260,6 +261,7 @@ def main_local(cfg: Config):
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model_id,
         torch_dtype=torch.bfloat16,
+        # torch_dtype=torch.float32, # will cause better perceision + will be reproducible with titan_xp gpu
         device_map="auto",
     )
     print(f"Model {cfg.model_id} loaded")
@@ -393,7 +395,7 @@ def main(cfg: Config):
         # gpu_type = "titan_xp-studentrun"
 
         for prompt_template in [
-            # PromptBank.BASIC,
+            PromptBank.BASIC,
             PromptBank.BASIC_PLUS,
             PromptBank.BASIC_WITH_SYSTEM_MESSAGE,
             PromptBank.ENCOURAGING,
