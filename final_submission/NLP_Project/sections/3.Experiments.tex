@@ -226,56 +226,6 @@ Another takeaway, is that just looking at the change of accuracy is not enough t
   \label{rep: Models average heatmap}
 \end{figure}
 
-\subsection{Analyzing Model Confidence through Logit Differences}
-
-\begin{figure*}[htbp!]
-  \centering
-  \includegraphics[width=\textwidth]{img/model_confidence_by_initial_correctness_on_baseline.png}
-  \caption{Model's confidence in each of the 6 confidence samples, on the baseline prompt. The top row represents the models' were correct in their initial response, while the bottom row represents the models' were incorrect in their initial response.}
-  \label{fig:models_confidence_per_initial_correctness}
-\end{figure*}
-
-\paragraph{}
-
-In the previous experiments, we focused on accuracy based metrics to evaluate the models' performance. However, the way that models produces their answers is not binary, and using only accuracy as a metric may not provide a full picture of the models' decision-making process. In this experiment, we aim to analyze the models' confidence in their answers by examining the difference in logits between the correct and incorrect answer tokens. By analyzing the confidence shifts after expressing doubt, we assess the models' ability to adjust their internal certainty and correct their answers.
-
-\paragraph{Experimental Setup}
-
-\begin{enumerate}
-  \item For each question, we sampled the confidence (logit difference between the correct and incorrect answer tokens) at 2 points, as marked in the baseline template \ref{fig:baseline_prompt_template}, \textbf{1st Point} (1st response / before doubt) and \textbf{2nd Point} (2nd response / after doubt).
-  \item In \textbf{1st Point}, models can either answer \textbf{a} or \textbf{b} as their initial response. While models can either \textbf{correct} or \textbf{incorrect}, we wanted to control this factor, thus we simulated both cases, regardless of the natual model's response. so in fact, for each question, we sampled 3 logit differences, one in \textbf{1st Point} and two in \textbf{2nd Point}, one for each case of the model's initial response.
-  \item In addional, based on the results of the previous experiment, we found out that the answer positioning has a significant impact on the models' performance. Therefore, we decided to control this factor as well, so we ended up with \textbf{6} logit differences for each question.
-
-\end{enumerate}
-
-\begin{itemize}
-  \item Number of questions: 1,500
-  \item \textbf{Controled Factors}:
-    \begin{itemize}
-      \item \textbf{Correct Answer Position}: Correct answer positioned at \textbf{a} or \textbf{b}.
-      \item \textbf{First Response}: Initial response is correct or mistaken.
-    \end{itemize}
-\end{itemize}
-
-\paragraph{Results and Discussion}
-
-Figure~\ref{fig:models_confidence_per_initial_correctness} illustrates the average confidence for each model across the 6 confidence samples, separated by the initial response correctness. Figure~\ref{fig:models_confidence} illustrate the distribution of the confidence in the second response, in relation to the initial response. By looking at the results, we can learn that indeed the confidence reveals characteristics of some of the models that were not visible in the accuracy metrics.
-\begin{itemize}
-  \item \textbf{Natural Confidence}: We can see that the models that were correct in their initial response, generally had higher confidence in their answers, and mostly maintained their confidence after expressing doubt. While the models that were correct in their initial response, generally had higher confidence in their answers, and mostly maintained their confidence after expressing doubt.
-  \item \textbf{Confidence Shifts}: In figure \ref{fig:models_confidence}, generally we see that confidence shifts are  not so common. Interestingly, we can see that the model phi-3.5-mini, acting a bit different than the others, and specifically, if it happened to be correct in its initial response, it tends to keep its confidence.
-  \item \textbf{Close to 0 Confidence}: By looking at confidence, we can now speak on questions that the model was debating about, and we can see that by the fact that their confidence was close to 0. Questions that the model was incorrect on, were closer to 0 confidence, than the questions that the model was correct on.
-  \item \textbf{Slope}: In figure \ref{fig:models_confidence} we can see the relation between the initial response correctness are correlated with the confidence in the second response. In the top right graph, we can see that mistral-8x7B, slope is Surprisingly low, meaning that the model doesn't consider it's first reponse correctness as an important factor in its second response, in contrast to the other models.
-  \item \textbf{Size do matter}: We can see that llama3.2 3B is almost always the better than the 1B model. And that high a postive sign for the correctness of the response.
-\end{itemize}
-
-\begin{figure*}[ht!]
-  \includegraphics[width=\textwidth]{img/first_vs_last_logit_diff_on_baseline.png}
-  % \includegraphics[width=\textwidth]{img/confidence_distribution_on_baseline.png}
-  \caption{Model Confidence distribution on the baseline prompt, columns represent whether the correct answer was positioned first or second, and rows represent the models' initial response correctness. Points are plotted with opacity = 0.05. The legend does not hide seenable points. \\
-  Also note that some of the points are not natural, as they are simulated to control the initial response correctness. For example, for the points that were naturally correct, are plotted in the the right quadrants at the top graphs, and in the left quadrants in the bottom graphs.}
-  \label{fig:models_confidence}
-\end{figure*}
-
 \subsection{Repeated Doubt with Feedback}
 
 Building on the results of previous experiments, which showed no significant consistent improvement in model accuracy when doubt was introduced, this experiment investigates whether adding feedback on the model's performance after expressing doubt, combined with iterative repetition, can enhance accuracy.
@@ -354,3 +304,53 @@ These results reveal varied responses to doubt, feedback, and iteration across d
   \caption{Llama-8B accuracy across iterations with and without induced doubt. For the experiment with doubt, accuracy before the doubt stage is reported, consistent with the blue line in Figure \ref{rep: graph}.}
   \label{rep: graph_8b}
 \end{figure}
+
+\subsection{Analyzing Model Confidence through Logit Differences}
+
+\begin{figure*}[htbp!]
+  \centering
+  \includegraphics[width=\textwidth]{img/model_confidence_by_initial_correctness_on_baseline.png}
+  \caption{Model's confidence in each of the 6 confidence samples, on the baseline prompt. The top row represents the models' were correct in their initial response, while the bottom row represents the models' were incorrect in their initial response.}
+  \label{fig:models_confidence_per_initial_correctness}
+\end{figure*}
+
+\paragraph{}
+
+In the previous experiments, we focused on accuracy based metrics to evaluate the models' performance. However, the way that models produces their answers is not binary, and using only accuracy as a metric may not provide a full picture of the models' decision-making process. In this experiment, we aim to analyze the models' confidence in their answers by examining the difference in logits between the correct and incorrect answer tokens. By analyzing the confidence shifts after expressing doubt, we assess the models' ability to adjust their internal certainty and correct their answers.
+
+\paragraph{Experimental Setup}
+
+\begin{enumerate}
+  \item For each question, we sampled the confidence (logit difference between the correct and incorrect answer tokens) at 2 points, as marked in the baseline template \ref{fig:baseline_prompt_template}, \textbf{1st Point} (1st response / before doubt) and \textbf{2nd Point} (2nd response / after doubt).
+  \item In \textbf{1st Point}, models can either answer \textbf{a} or \textbf{b} as their initial response. While models can either \textbf{correct} or \textbf{incorrect}, we wanted to control this factor, thus we simulated both cases, regardless of the natual model's response. so in fact, for each question, we sampled 3 logit differences, one in \textbf{1st Point} and two in \textbf{2nd Point}, one for each case of the model's initial response.
+  \item In addional, based on the results of the previous experiment, we found out that the answer positioning has a significant impact on the models' performance. Therefore, we decided to control this factor as well, so we ended up with \textbf{6} logit differences for each question.
+
+\end{enumerate}
+
+\begin{itemize}
+  \item Number of questions: 1,500
+  \item \textbf{Controled Factors}:
+    \begin{itemize}
+      \item \textbf{Correct Answer Position}: Correct answer positioned at \textbf{a} or \textbf{b}.
+      \item \textbf{First Response}: Initial response is correct or mistaken.
+    \end{itemize}
+\end{itemize}
+
+\paragraph{Results and Discussion}
+
+Figure~\ref{fig:models_confidence_per_initial_correctness} illustrates the average confidence for each model across the 6 confidence samples, separated by the initial response correctness. Figure~\ref{fig:models_confidence} illustrate the distribution of the confidence in the second response, in relation to the initial response. By looking at the results, we can learn that indeed the confidence reveals characteristics of some of the models that were not visible in the accuracy metrics.
+\begin{itemize}
+  \item \textbf{Natural Confidence}: We can see that the models that were correct in their initial response, generally had higher confidence in their answers, and mostly maintained their confidence after expressing doubt. While the models that were correct in their initial response, generally had higher confidence in their answers, and mostly maintained their confidence after expressing doubt.
+  \item \textbf{Confidence Shifts}: In figure \ref{fig:models_confidence}, generally we see that confidence shifts are  not so common. Interestingly, we can see that the model phi-3.5-mini, acting a bit different than the others, and specifically, if it happened to be correct in its initial response, it tends to keep its confidence.
+  \item \textbf{Close to 0 Confidence}: By looking at confidence, we can now speak on questions that the model was debating about, and we can see that by the fact that their confidence was close to 0. Questions that the model was incorrect on, were closer to 0 confidence, than the questions that the model was correct on.
+  \item \textbf{Slope}: In figure \ref{fig:models_confidence} we can see the relation between the initial response correctness are correlated with the confidence in the second response. In the top right graph, we can see that mistral-8x7B, slope is Surprisingly low, meaning that the model doesn't consider it's first reponse correctness as an important factor in its second response, in contrast to the other models.
+  \item \textbf{Size do matter}: We can see that llama3.2 3B is almost always the better than the 1B model. And that high a postive sign for the correctness of the response.
+\end{itemize}
+
+\begin{figure*}[ht!]
+  \includegraphics[width=\textwidth]{img/first_vs_last_logit_diff_on_baseline.png}
+  % \includegraphics[width=\textwidth]{img/confidence_distribution_on_baseline.png}
+  \caption{Model Confidence distribution on the baseline prompt, columns represent whether the correct answer was positioned first or second, and rows represent the models' initial response correctness. Points are plotted with opacity = 0.05. The legend does not hide seenable points. \\
+  Also note that some of the points are not natural, as they are simulated to control the initial response correctness. For example, for the points that were naturally correct, are plotted in the the right quadrants at the top graphs, and in the left quadrants in the bottom graphs.}
+  \label{fig:models_confidence}
+\end{figure*}
